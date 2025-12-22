@@ -29,3 +29,6 @@ dist-ssr
 .env.*
 backend/.env
 backend/venv/
+
+mcp-server/venv/
+mcp-server/.env
