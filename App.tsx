@@ -15,7 +15,11 @@ type Tab = 'dashboard' | 'daily' | 'learn' | 'admin';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    // Restore tab from localStorage on mount
+    const savedTab = localStorage.getItem('cs_active_tab') as Tab;
+    return savedTab || 'dashboard';
+  });
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loadingDaily, setLoadingDaily] = useState(false);
 
@@ -85,8 +89,16 @@ const App: React.FC = () => {
     fetchPlan();
   }, [user]);
 
+  // Persist activeTab to localStorage
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('cs_active_tab', activeTab);
+    }
+  }, [activeTab, user]);
+
   const handleLogout = () => {
     db.logout();
+    localStorage.removeItem('cs_active_tab');
     setUser(null);
     setActiveTab('dashboard');
   };

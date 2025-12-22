@@ -101,7 +101,8 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
       setLoading(true);
       setError(null);
       setLessonContent(null);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Don't scroll to top - let user stay at current position
+      // Scroll will happen after content loads
 
       try {
         const content = await generateLessonContent(activeModule.id, activeModule.title, selectedCourse.category);
