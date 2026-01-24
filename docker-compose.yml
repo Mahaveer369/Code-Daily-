@@ -1,0 +1,96 @@
+# Docker Compose for Code-Daily- with Docker Sandbox
+# Run: docker-compose up --build
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: codedaily-db
+    environment:
+      POSTGRES_DB: elearning_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - codedaily-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Django Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: codedaily-backend
+    environment:
+      - DEBUG=False
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-your-secret-key-change-in-production}
+      - DB_NAME=elearning_db
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-postgres123}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - EXECUTOR_SERVICE_URL=http://executor:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - codedaily-network
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn --bind 0.0.0.0:8000 --workers 3 config.wsgi:application"
+
+  # Code Executor Service (FastAPI + Docker SDK)
+  executor:
+    build:
+      context: ./executor_service
+      dockerfile: Dockerfile
+    container_name: codedaily-executor
+    environment:
+      - EXECUTION_TIMEOUT=5
+      - MAX_MEMORY_MB=100
+      - MAX_CONCURRENT=10
+    volumes:
+      # Mount Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8001:8001"
+    networks:
+      - codedaily-network
+    # Note: Requires sandbox images to be built first
+    # Run: cd executor_service && bash build_sandboxes.sh
+
+    # React Frontend (Vite)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: codedaily-frontend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - codedaily-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+networks:
+  codedaily-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

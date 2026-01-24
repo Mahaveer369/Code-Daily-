@@ -78,6 +78,23 @@ export const COURSES: Course[] = [
       { id: 'sd-9', title: 'Design Twitter', description: 'Feed Generation, Fan-out', difficulty: 'Expert', isLocked: false },
     ]
   },
+  {
+    id: 'c7', title: 'Computer Networks', category: Category.NETWORKS, icon: 'network',
+    modules: [
+      { id: 'cn-1', title: 'OSI Model Deep Dive', description: '7 Layers, PDUs, Encapsulation', difficulty: 'Beginner', isLocked: false },
+      { id: 'cn-2', title: 'TCP/IP Protocol Suite', description: 'TCP vs UDP, IP Addressing, Subnetting', difficulty: 'Beginner', isLocked: false },
+      { id: 'cn-3', title: 'HTTP & HTTPS', description: 'Request/Response, TLS Handshake, HTTP/2, HTTP/3', difficulty: 'Intermediate', isLocked: false },
+      { id: 'cn-4', title: 'DNS & Domain Resolution', description: 'DNS Records, Recursive vs Iterative, DNSSEC', difficulty: 'Intermediate', isLocked: false },
+      { id: 'cn-5', title: 'Sockets & WebSockets', description: 'TCP Sockets, Socket.io, Real-time Communication', difficulty: 'Intermediate', isLocked: false },
+      { id: 'cn-6', title: 'Network Security', description: 'Firewalls, VPN, TLS/SSL, CORS, XSS, CSRF', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-7', title: 'Load Balancers & Proxies', description: 'L4 vs L7, Reverse Proxy, HAProxy, Nginx', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-8', title: 'CDNs & Edge Computing', description: 'Caching at Edge, Cloudflare, AWS CloudFront', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-9', title: 'REST vs GraphQL vs gRPC', description: 'API Design, Protocol Buffers, When to Use What', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-10', title: 'Network Troubleshooting', description: 'ping, traceroute, netstat, tcpdump, Wireshark', difficulty: 'Expert', isLocked: false },
+      { id: 'cn-11', title: 'FAANG Interview: Design CDN', description: 'End-to-End CDN Architecture', difficulty: 'Expert', isLocked: false },
+      { id: 'cn-12', title: 'FAANG Interview: Video Streaming', description: 'Netflix/YouTube Architecture, Adaptive Bitrate', difficulty: 'Expert', isLocked: false },
+    ]
+  },
 ];
 
 interface Props {
@@ -172,7 +189,8 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
                         course.icon === 'cloud' ? '☁️' :
                           course.icon === 'cpu' ? '💻' :
                             course.icon === 'os' ? '🖥️' :
-                              course.icon === 'code' ? '⚡' : '📚'
+                              course.icon === 'code' ? '⚡' :
+                                course.icon === 'network' ? '🌐' : '📚'
                   }</span>
                 </div>
                 <div className="px-2 py-1 rounded bg-gray-800 text-xs text-gray-400 font-mono">

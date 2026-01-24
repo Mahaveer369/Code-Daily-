@@ -7,7 +7,8 @@ export enum Category {
   OOPS = 'Object Oriented Programming',
   SQL = 'SQL Deep Dive',
   NOSQL = 'NoSQL & Distributed Data',
-  PYTHON = 'Python Mastery'
+  PYTHON = 'Python Mastery',
+  NETWORKS = 'Computer Networks'
 }
 
 export interface DailyTopic {

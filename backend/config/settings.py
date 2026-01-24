@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'progress',
     'quizzes',
     'ai',
+    'executor',
 ]
 
 SEARCH_BACKEND = 'django.db.models.functions.SearchVector'

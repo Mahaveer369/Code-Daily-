@@ -8,4 +8,5 @@ urlpatterns = [
     path('progress/', include('progress.urls')),
     path('quizzes/', include('quizzes.urls')),
     path('ai/', include('ai.urls')),
+    path('api/execute/', include('executor.urls')),
 ]

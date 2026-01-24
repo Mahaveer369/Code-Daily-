@@ -32,3 +32,7 @@ backend/venv/
 
 mcp-server/venv/
 mcp-server/.env
+
+# Docker
+executor_service/__pycache__/
+executor_service/*.pyc
