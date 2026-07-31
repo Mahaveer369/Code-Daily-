@@ -73,4 +73,7 @@ const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content
   );
 };
 
-export default MarkdownRenderer;
+// ⚡ Bolt: Wrapped MarkdownRenderer with React.memo to prevent expensive re-parsing
+// and re-rendering of static markdown content, especially during chat message streaming.
+// Expected Impact: Eliminates redundant parsing for historical messages on every stream chunk.
+export default React.memo(MarkdownRenderer);
