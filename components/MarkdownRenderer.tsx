@@ -73,4 +73,6 @@ const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content
   );
 };
 
-export default MarkdownRenderer;
+// ⚡ Bolt Optimization: Wrap MarkdownRenderer in React.memo to prevent expensive re-renders.
+// Impact: Prevents re-parsing of complex markdown and regex matching on every parent component update (e.g., when typing in ChatBot).
+export default React.memo(MarkdownRenderer);
