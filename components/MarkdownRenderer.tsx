@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content, svg }) => {
+// Optimization: Wrap MarkdownRenderer in React.memo to prevent expensive re-renders
+// (regex parsing, string splitting) when the parent component re-renders but
+// the markdown content and svg props haven't changed.
+const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = memo(({ content, svg }) => {
   if (!content && !svg) return null;
 
   const processContent = (text: string) => {
@@ -71,6 +74,6 @@ const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content
       {processContent(content)}
     </div>
   );
-};
+});
 
 export default MarkdownRenderer;
