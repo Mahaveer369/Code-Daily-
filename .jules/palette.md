@@ -1,0 +1,3 @@
+## 2024-08-01 - Missing ARIA Labels on Icon-Only Buttons
+**Learning:** This application makes heavy use of dynamic, icon-only buttons and toggle states (like the ChatBot floating action button and submit buttons) that lack descriptive ARIA labels, making them inaccessible to screen readers.
+**Action:** Always verify that icon-only interactive elements and toggle buttons have appropriate `aria-label` and state attributes (like `aria-expanded`) when creating or reviewing components in this design system.
