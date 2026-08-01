@@ -86,6 +86,7 @@ const ChatBot: React.FC = () => {
       {/* Floating Action Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? "Close chat" : "Open chat"}
         className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center ${
           isOpen ? 'bg-red-500 rotate-90' : 'bg-primary hover:bg-blue-600'
         }`}
@@ -159,6 +160,7 @@ const ChatBot: React.FC = () => {
             />
             <button
               type="submit"
+              aria-label="Send message"
               disabled={isLoading || !inputValue.trim()}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gray-800 text-primary hover:text-white rounded-full hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
