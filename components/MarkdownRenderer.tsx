@@ -1,4 +1,5 @@
 import React from 'react';
+import DOMPurify from 'isomorphic-dompurify';
 
 const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content, svg }) => {
   if (!content && !svg) return null;
@@ -64,7 +65,8 @@ const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content
           <div className="text-xs text-gray-500 uppercase tracking-widest mb-4 w-full text-center border-b border-gray-800 pb-2">AI Generated Diagram</div>
           <div 
             className="w-full max-w-lg overflow-hidden rounded-lg [&>svg]:w-full [&>svg]:h-auto"
-            dangerouslySetInnerHTML={{ __html: svg }} 
+            // SECURITY: Sanitize SVG content to prevent XSS attacks from malicious vectors
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg) }}
           />
         </div>
       )}
