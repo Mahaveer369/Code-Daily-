@@ -1,4 +1,5 @@
 import React from 'react';
+import DOMPurify from 'dompurify';
 
 const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content, svg }) => {
   if (!content && !svg) return null;
@@ -64,7 +65,8 @@ const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content
           <div className="text-xs text-gray-500 uppercase tracking-widest mb-4 w-full text-center border-b border-gray-800 pb-2">AI Generated Diagram</div>
           <div 
             className="w-full max-w-lg overflow-hidden rounded-lg [&>svg]:w-full [&>svg]:h-auto"
-            dangerouslySetInnerHTML={{ __html: svg }} 
+            // Security: Sanitize SVG to prevent XSS from AI generated content
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg) }}
           />
         </div>
       )}
@@ -73,4 +75,7 @@ const MarkdownRenderer: React.FC<{ content: string; svg?: string }> = ({ content
   );
 };
 
-export default MarkdownRenderer;
+// ⚡ Bolt: Wrapped MarkdownRenderer with React.memo to prevent expensive re-parsing
+// and re-rendering of static markdown content, especially during chat message streaming.
+// Expected Impact: Eliminates redundant parsing for historical messages on every stream chunk.
+export default React.memo(MarkdownRenderer);

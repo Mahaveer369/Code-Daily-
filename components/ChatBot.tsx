@@ -85,9 +85,12 @@ const ChatBot: React.FC = () => {
     <>
       {/* Floating Action Button */}
       <button
+        aria-label="Toggle chat"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         aria-label={isOpen ? "Close chat" : "Open chat"}
         className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center ${
+        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
           isOpen ? 'bg-red-500 rotate-90' : 'bg-primary hover:bg-blue-600'
         }`}
       >
@@ -151,18 +154,20 @@ const ChatBot: React.FC = () => {
         <div className="p-4 border-t border-gray-700 bg-gray-800/30 rounded-b-2xl">
           <form onSubmit={handleSendMessage} className="relative">
             <input
+              aria-label="Chat message"
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Ask about complexity, design patterns..."
-              className="w-full bg-gray-900 border border-gray-700 text-white rounded-full py-3 px-4 pr-12 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent placeholder-gray-500"
+              className="w-full bg-gray-900 border border-gray-700 text-white rounded-full py-3 px-4 pr-12 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus:border-transparent placeholder-gray-500"
               disabled={isLoading}
             />
             <button
+              aria-label="Send message"
               type="submit"
               aria-label="Send message"
               disabled={isLoading || !inputValue.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gray-800 text-primary hover:text-white rounded-full hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gray-800 text-primary hover:text-white rounded-full hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9-2-9-18-9 18 9-2zm0 0v-8" />
