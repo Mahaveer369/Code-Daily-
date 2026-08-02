@@ -4,6 +4,20 @@
 version: '3.8'
 
 services:
+  # Redis Cache & Rate Limiting
+  redis:
+    image: redis:7-alpine
+    container_name: codedaily-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - codedaily-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
@@ -43,6 +57,8 @@ services:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - codedaily-network
