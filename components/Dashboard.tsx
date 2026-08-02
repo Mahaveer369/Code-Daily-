@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { UserProfile, CourseProgress, Certificate, Bookmark } from '../types';
 import { COURSES } from './LearningModule';
 import { db } from '../services/db';
@@ -21,8 +21,18 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
       setCertificates(db.getCertificates(progress.id));
    }, [progress.id]);
 
+   // ⚡ Bolt: Replace O(n^2) nested loop (find inside map) with O(n) hash map lookup
+   // Expected Impact: Improves rendering performance of Dashboard, especially as user progresses in more courses
+   const userProgressMap = useMemo(() => {
+      const map = new Map<string, CourseProgress>();
+      userProgress.forEach(prog => {
+         map.set(prog.courseId, prog);
+      });
+      return map;
+   }, [userProgress]);
+
    const getCourseProgressPercent = (courseId: string) => {
-      const prog = userProgress.find(p => p.courseId === courseId);
+      const prog = userProgressMap.get(courseId);
       if (!prog) return 0;
       return Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
    };
