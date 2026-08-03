@@ -130,13 +130,24 @@ Return ONLY valid JSON with this exact structure:
   }
 };
 
+// ⚡ Bolt: Added in-memory cache for fast definitions to prevent redundant API calls for the same terms.
+// Expected Impact: Reduces latency and API costs for frequently requested definitions.
+const fastDefinitionCache = new Map<string, string>();
+
 export const getFastDefinition = async (term: string): Promise<string> => {
+  const normalizedTerm = term.toLowerCase().trim();
+  if (fastDefinitionCache.has(normalizedTerm)) {
+    return fastDefinitionCache.get(normalizedTerm)!;
+  }
+
   try {
     const content = await callPerplexity(
       "You are a CS expert. Define terms concisely in max 30 words.",
       `Define "${term}" in CS context.`
     );
-    return content || "Definition unavailable.";
+    const result = content || "Definition unavailable.";
+    fastDefinitionCache.set(normalizedTerm, result);
+    return result;
   } catch (error) {
     console.warn("Fast def failed", error);
     return "Could not retrieve definition.";
