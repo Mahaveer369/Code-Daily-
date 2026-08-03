@@ -1,3 +1,6 @@
 ## 2024-08-01 - React.memo on Static Renderers
 **Learning:** Complex static renderers (like MarkdownRenderer) that do string parsing and regex matching are prime targets for unnecessary re-renders when embedded in components with frequently updating state (like ChatBot receiving stream chunks). The default shallow compare in React.memo is highly effective here since the props (`content` string) are primitive.
 **Action:** Always check if expensive UI components are being re-rendered unnecessarily in loops or during stream updates, and wrap them in React.memo if their props are primarily static primitives or primitive-like objects.
+## 2024-05-30 - Memoization of Perplexity calls
+**Learning:** Adding an in-memory cache mechanism (like a `Map`) for frequent API calls returning static definitions can vastly reduce latency, redundant backend queries, and overall network costs. We can normalize inputs before caching (e.g. `toLowerCase().trim()`) to ensure cache hits.
+**Action:** Always check if repetitive API queries that return static content can be cached in-memory. Watch out for caching failures in case they shouldn't be added to the cache, like we did by caching only successful responses.
