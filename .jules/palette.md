@@ -1,3 +1,3 @@
-## 2024-05-14 - Icon-Only Chat Buttons Lack ARIA Labels
-**Learning:** Floating action buttons and icon-only inline buttons (like send message buttons) often lack text content. Without an `aria-label`, these critical interaction points are invisible or confusing to screen reader users.
-**Action:** Always ensure any icon-only interactive element, such as chat toggles or submit buttons without visible text, includes a descriptive `aria-label` attribute.
+## 2024-06-25 - Interactive Window Controls Accessibility
+**Learning:** Found interactive macOS-style window control dots (Reset, Clear, Run) implemented as inaccessible `<div>` tags with `onClick` handlers. This completely prevented keyboard navigation and screen reader access to essential functionality.
+**Action:** Always use native `<button>` elements for interactive controls, especially icon-only ones, and ensure they have `aria-label` attributes and clear `focus-visible` styling (e.g., `focus-visible:ring-2`) to support keyboard navigation.
