@@ -2,7 +2,8 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyARPw3vi43SmGhIUDLOs-o6uBptzgRTlek",
+    // 🛡️ Sentinel: Prevented hardcoded secret in client code
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: "subhanisstudent.firebaseapp.com",
     projectId: "subhanisstudent",
     storageBucket: "subhanisstudent.firebasestorage.app",
