@@ -256,7 +256,7 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
           {selectedCourse.title}
         </button>
         <h2 className="text-lg font-bold text-white hidden md:block">{activeModule.title}</h2>
-        <button onClick={() => setShowBookmarkModal(true)} className="text-gray-400 hover:text-yellow-400 p-2 transition-colors">
+        <button aria-label="Add Bookmark" onClick={() => setShowBookmarkModal(true)} className="text-gray-400 hover:text-yellow-400 p-2 transition-colors">
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z" /></svg>
         </button>
       </div>
