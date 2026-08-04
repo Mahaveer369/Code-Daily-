@@ -130,17 +130,34 @@ Return ONLY valid JSON with this exact structure:
   }
 };
 
+const definitionCache = new Map<string, string>();
+const pendingDefRequests = new Map<string, Promise<string>>();
+
+// ⚡ Bolt: Implemented in-memory caching and request deduplication for getFastDefinition
+// Expected Impact: Prevents duplicate external API calls when users click the same term multiple times or concurrently. Reduces latency and API costs.
 export const getFastDefinition = async (term: string): Promise<string> => {
-  try {
-    const content = await callPerplexity(
-      "You are a CS expert. Define terms concisely in max 30 words.",
-      `Define "${term}" in CS context.`
-    );
-    return content || "Definition unavailable.";
-  } catch (error) {
-    console.warn("Fast def failed", error);
-    return "Could not retrieve definition.";
-  }
+  if (definitionCache.has(term)) return definitionCache.get(term)!;
+  if (pendingDefRequests.has(term)) return pendingDefRequests.get(term)!;
+
+  const fetchPromise = (async () => {
+    try {
+      const content = await callPerplexity(
+        "You are a CS expert. Define terms concisely in max 30 words.",
+        `Define "${term}" in CS context.`
+      );
+      const result = content || "Definition unavailable.";
+      definitionCache.set(term, result);
+      return result;
+    } catch (error) {
+      console.warn("Fast def failed", error);
+      return "Could not retrieve definition.";
+    } finally {
+      pendingDefRequests.delete(term);
+    }
+  })();
+
+  pendingDefRequests.set(term, fetchPromise);
+  return fetchPromise;
 };
 
 // --- Course Content Generation ---
