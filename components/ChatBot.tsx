@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChatMessage } from '../types';
 import { ChatService } from '../services/gemini';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -81,15 +81,34 @@ const ChatBot: React.FC = () => {
     }
   };
 
+  // ⚡ Bolt: Memoized message list to prevent re-rendering all messages on every keystroke in the input field.
+  // Expected impact: Eliminates input lag by preventing expensive MarkdownRenderer re-renders when typing.
+  const renderedMessages = useMemo(() => messages.map((msg) => (
+    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+      <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+        msg.role === 'user'
+          ? 'bg-primary text-white rounded-br-none'
+          : 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700'
+      }`}>
+        {msg.role === 'model' ? (
+            <div className="text-sm">
+              <MarkdownRenderer content={msg.text} />
+              {msg.isStreaming && <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"/>}
+            </div>
+        ) : (
+            <p className="text-sm">{msg.text}</p>
+        )}
+      </div>
+    </div>
+  )), [messages]);
+
   return (
     <>
       {/* Floating Action Button */}
       <button
-        aria-label="Toggle chat"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         aria-label={isOpen ? "Close chat" : "Open chat"}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center ${
         className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
           isOpen ? 'bg-red-500 rotate-90' : 'bg-primary hover:bg-blue-600'
         }`}
@@ -129,24 +148,7 @@ const ChatBot: React.FC = () => {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                msg.role === 'user' 
-                  ? 'bg-primary text-white rounded-br-none' 
-                  : 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700'
-              }`}>
-                {msg.role === 'model' ? (
-                   <div className="text-sm">
-                      <MarkdownRenderer content={msg.text} />
-                      {msg.isStreaming && <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"/>}
-                   </div>
-                ) : (
-                   <p className="text-sm">{msg.text}</p>
-                )}
-              </div>
-            </div>
-          ))}
+          {renderedMessages}
           <div ref={messagesEndRef} />
         </div>
 
@@ -163,7 +165,6 @@ const ChatBot: React.FC = () => {
               disabled={isLoading}
             />
             <button
-              aria-label="Send message"
               type="submit"
               aria-label="Send message"
               disabled={isLoading || !inputValue.trim()}
