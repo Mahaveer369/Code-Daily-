@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { UserProfile, CourseProgress, Certificate, Bookmark } from '../types';
 import { COURSES } from './LearningModule';
 import { db } from '../services/db';
@@ -21,11 +21,19 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
       setCertificates(db.getCertificates(progress.id));
    }, [progress.id]);
 
-   const getCourseProgressPercent = (courseId: string) => {
-      const prog = userProgress.find(p => p.courseId === courseId);
-      if (!prog) return 0;
-      return Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
-   };
+   // ⚡ Bolt: Replaced O(n²) nested loop finding progress with an O(n) hash map lookup
+   // This prevents unnecessary repeated array searches on every re-render when calculating course progress.
+   const courseProgressMap = useMemo(() => {
+      const map: Record<string, number> = {};
+      userProgress.forEach(prog => {
+         map[prog.courseId] = Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
+      });
+      return map;
+   }, [userProgress]);
+
+   const getCourseProgressPercent = useCallback((courseId: string) => {
+      return courseProgressMap[courseId] || 0;
+   }, [courseProgressMap]);
 
    return (
       <div className="space-y-8 animate-fadeIn pb-12">
