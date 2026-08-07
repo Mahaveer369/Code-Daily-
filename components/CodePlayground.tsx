@@ -162,21 +162,24 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
       <div className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-gray-700">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
-            <div
-              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 cursor-pointer transition-colors"
+            <button
+              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#161b22]"
               onClick={handleReset}
               title="Reset Code"
-            ></div>
-            <div
-              className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 cursor-pointer transition-colors"
+              aria-label="Reset Code"
+            ></button>
+            <button
+              className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#161b22]"
               onClick={handleClear}
               title="Clear Output"
-            ></div>
-            <div
-              className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 cursor-pointer transition-colors"
+              aria-label="Clear Output"
+            ></button>
+            <button
+              className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#161b22]"
               onClick={handleRun}
               title="Run Code"
-            ></div>
+              aria-label="Run Code"
+            ></button>
           </div>
           <span className="ml-3 text-xs font-mono text-gray-400 uppercase flex items-center gap-2">
             {language} Playground
