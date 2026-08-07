@@ -130,13 +130,22 @@ Return ONLY valid JSON with this exact structure:
   }
 };
 
+// ⚡ Bolt: Cache fast definitions in-memory to prevent redundant API calls for the same tag,
+// saving network latency and reducing Perplexity API usage on repeat clicks.
+const definitionCache = new Map<string, string>();
+
 export const getFastDefinition = async (term: string): Promise<string> => {
+  if (definitionCache.has(term)) {
+    return definitionCache.get(term)!;
+  }
   try {
     const content = await callPerplexity(
       "You are a CS expert. Define terms concisely in max 30 words.",
       `Define "${term}" in CS context.`
     );
-    return content || "Definition unavailable.";
+    const def = content || "Definition unavailable.";
+    definitionCache.set(term, def);
+    return def;
   } catch (error) {
     console.warn("Fast def failed", error);
     return "Could not retrieve definition.";
