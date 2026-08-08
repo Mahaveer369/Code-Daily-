@@ -162,21 +162,24 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
       <div className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-gray-700">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
-            <div
-              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 cursor-pointer transition-colors"
+            <button
+              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
               onClick={handleReset}
               title="Reset Code"
-            ></div>
-            <div
-              className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 cursor-pointer transition-colors"
+              aria-label="Reset Code"
+            ></button>
+            <button
+              className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
               onClick={handleClear}
               title="Clear Output"
-            ></div>
-            <div
-              className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 cursor-pointer transition-colors"
+              aria-label="Clear Output"
+            ></button>
+            <button
+              className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
               onClick={handleRun}
               title="Run Code"
-            ></div>
+              aria-label="Run Code"
+            ></button>
           </div>
           <span className="ml-3 text-xs font-mono text-gray-400 uppercase flex items-center gap-2">
             {language} Playground
@@ -198,6 +201,7 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
                 : 'text-gray-400 hover:text-white hover:bg-gray-700'
               }`}
             title="Execution History"
+            aria-label="Toggle Execution History"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
