@@ -213,7 +213,7 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
   if (!activeModule) {
     return (
       <div className="animate-fadeIn">
-        <button onClick={() => setSelectedCourse(null)} className="mb-6 flex items-center text-gray-400 hover:text-white transition-colors text-sm font-medium">
+        <button onClick={() => setSelectedCourse(null)} className="mb-6 flex items-center text-gray-400 hover:text-white transition-colors text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1 -ml-1">
           <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           Back to Pathways
         </button>
@@ -251,12 +251,12 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
   return (
     <div className="animate-fadeIn pb-24 relative">
       <div className="flex items-center justify-between mb-8 border-b border-gray-800 pb-4 sticky top-0 bg-[#0f172a]/95 backdrop-blur z-30 py-4 px-4 -mx-4 shadow-xl">
-        <button onClick={() => setActiveModule(null)} className="flex items-center text-gray-400 hover:text-white transition-colors text-sm font-medium">
+        <button onClick={() => setActiveModule(null)} className="flex items-center text-gray-400 hover:text-white transition-colors text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1 -ml-1">
           <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           {selectedCourse.title}
         </button>
         <h2 className="text-lg font-bold text-white hidden md:block">{activeModule.title}</h2>
-        <button onClick={() => setShowBookmarkModal(true)} className="text-gray-400 hover:text-yellow-400 p-2 transition-colors">
+        <button aria-label="Bookmark lesson" onClick={() => setShowBookmarkModal(true)} className="text-gray-400 hover:text-yellow-400 p-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 rounded-lg">
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z" /></svg>
         </button>
       </div>
