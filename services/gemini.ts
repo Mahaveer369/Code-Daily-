@@ -130,13 +130,24 @@ Return ONLY valid JSON with this exact structure:
   }
 };
 
+const fastDefCache = new Map<string, string>();
+
 export const getFastDefinition = async (term: string): Promise<string> => {
+  // ⚡ Bolt: Cache fast definitions to prevent duplicate API calls for the same term.
+  // Impact: Reduces API latency, saves bandwidth, and prevents quota exhaustion when users repeatedly click tags.
+  const normalizedTerm = term.toLowerCase().trim();
+  if (fastDefCache.has(normalizedTerm)) {
+    return fastDefCache.get(normalizedTerm)!;
+  }
+
   try {
     const content = await callPerplexity(
       "You are a CS expert. Define terms concisely in max 30 words.",
       `Define "${term}" in CS context.`
     );
-    return content || "Definition unavailable.";
+    const def = content || "Definition unavailable.";
+    fastDefCache.set(normalizedTerm, def);
+    return def;
   } catch (error) {
     console.warn("Fast def failed", error);
     return "Could not retrieve definition.";
