@@ -71,7 +71,8 @@ const DailyCard: React.FC<Props> = ({ topic }) => {
             <button
               key={tag}
               onClick={(e) => handleQuickDef(e, tag)}
-              className="text-xs px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded transition-colors flex items-center gap-1 group"
+              className="text-xs px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded transition-colors flex items-center gap-1 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={`Quick definition for ${tag}`}
               title="Click for AI Quick Definition"
             >
               <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
