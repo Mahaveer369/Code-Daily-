@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { UserProfile, CourseProgress, Certificate, Bookmark } from '../types';
 import { COURSES } from './LearningModule';
 import { db } from '../services/db';
@@ -21,11 +21,22 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
       setCertificates(db.getCertificates(progress.id));
    }, [progress.id]);
 
-   const getCourseProgressPercent = (courseId: string) => {
-      const prog = userProgress.find(p => p.courseId === courseId);
-      if (!prog) return 0;
-      return Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
-   };
+   // ⚡ Bolt: Pre-calculate course progress percentages to avoid O(N*M) lookups in the render loop.
+   // Impact: Reduces re-render time by converting O(N*M) nested array lookups into a single O(N+M)
+   // preprocessing step with O(1) lookups during render.
+   const courseProgressPercents = useMemo(() => {
+      const percents: Record<string, number> = {};
+
+      // Build a fast lookup map for O(1) access
+      const progressMap = new Map(userProgress.map(p => [p.courseId, p]));
+
+      COURSES.forEach(course => {
+         const prog = progressMap.get(course.id);
+         if (!prog) percents[course.id] = 0;
+         else percents[course.id] = Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
+      });
+      return percents;
+   }, [userProgress]);
 
    return (
       <div className="space-y-8 animate-fadeIn pb-12">
@@ -69,7 +80,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {COURSES.map(course => {
-                     const percent = getCourseProgressPercent(course.id);
+                     const percent = courseProgressPercents[course.id];
                      return (
                         <div key={course.id} className="bg-card border border-gray-800 p-5 rounded-2xl hover:border-gray-700 transition-all group">
                            <div className="flex justify-between items-start mb-4">
