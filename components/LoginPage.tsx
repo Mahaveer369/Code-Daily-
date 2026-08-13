@@ -140,8 +140,9 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
+            <label htmlFor="email" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
             <input
+              id="email"
               type="email"
               required
               value={email}
@@ -152,8 +153,9 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
+            <label htmlFor="password" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
             <input
+              id="password"
               type="password"
               required
               value={password}
@@ -191,7 +193,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <button className="flex items-center justify-center px-4 py-2 border border-gray-700 rounded-xl shadow-sm bg-gray-800/50 hover:bg-gray-800 transition-colors">
+              <button aria-label="Sign in with GitHub" className="flex items-center justify-center px-4 py-2 border border-gray-700 rounded-xl shadow-sm bg-gray-800/50 hover:bg-gray-800 transition-colors">
                 <svg className="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.05-.015-2.055-3.33 .72-4.035-1.605-4.035-1.605-.54-1.38-1.335-1.755-1.335-1.755-1.087-.75.075-.735.075-.735 1.2.09 1.83 1.245 1.83 1.245 1.08 1.86 2.805 1.32 3.495 1.005.105-.78.42-1.32.765-1.62-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.225 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405 1.02 0 2.04.135 3 .405 2.295-1.56 3.3-1.23 3.3-1.23.66 1.695.24 2.925.12 3.225.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.31 24 12c0-6.63-5.37-12-12-12z" /></svg>
               </button>
               <button
