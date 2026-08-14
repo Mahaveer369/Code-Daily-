@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { UserProfile, CourseProgress, Certificate, Bookmark } from '../types';
 import { COURSES } from './LearningModule';
 import { db } from '../services/db';
@@ -21,10 +21,18 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
       setCertificates(db.getCertificates(progress.id));
    }, [progress.id]);
 
+   // ⚡ Bolt: Pre-calculate progress map to replace O(N) array search inside the render loop
+   // Expected Impact: Changes render complexity from O(Courses * ProgressItems) to O(Courses + ProgressItems)
+   const progressMap = useMemo(() => {
+      const map: Record<string, number> = {};
+      userProgress.forEach(prog => {
+         map[prog.courseId] = Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
+      });
+      return map;
+   }, [userProgress]);
+
    const getCourseProgressPercent = (courseId: string) => {
-      const prog = userProgress.find(p => p.courseId === courseId);
-      if (!prog) return 0;
-      return Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
+      return progressMap[courseId] || 0;
    };
 
    return (
