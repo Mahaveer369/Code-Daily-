@@ -162,21 +162,24 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
       <div className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-gray-700">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
-            <div
-              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 cursor-pointer transition-colors"
+            <button
+              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               onClick={handleReset}
+              aria-label="Reset Code"
               title="Reset Code"
-            ></div>
-            <div
-              className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 cursor-pointer transition-colors"
+            ></button>
+            <button
+              className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
               onClick={handleClear}
+              aria-label="Clear Output"
               title="Clear Output"
-            ></div>
-            <div
-              className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 cursor-pointer transition-colors"
+            ></button>
+            <button
+              className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
               onClick={handleRun}
+              aria-label="Run Code"
               title="Run Code"
-            ></div>
+            ></button>
           </div>
           <span className="ml-3 text-xs font-mono text-gray-400 uppercase flex items-center gap-2">
             {language} Playground
