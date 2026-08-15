@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { UserProfile, CourseProgress, Certificate, Bookmark } from '../types';
 import { COURSES } from './LearningModule';
 import { db } from '../services/db';
@@ -21,11 +21,19 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
       setCertificates(db.getCertificates(progress.id));
    }, [progress.id]);
 
-   const getCourseProgressPercent = (courseId: string) => {
-      const prog = userProgress.find(p => p.courseId === courseId);
-      if (!prog) return 0;
-      return Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
-   };
+   // ⚡ Bolt: Use useMemo to pre-calculate progress percentages into an O(1) hash map
+   // Expected Impact: Eliminates expensive O(N) .find() lookups during the COURSES.map render loop
+   const courseProgressMap = useMemo(() => {
+      const map: Record<string, number> = {};
+      userProgress.forEach(prog => {
+         if (prog.totalModules > 0) {
+            map[prog.courseId] = Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
+         } else {
+            map[prog.courseId] = 0;
+         }
+      });
+      return map;
+   }, [userProgress]);
 
    return (
       <div className="space-y-8 animate-fadeIn pb-12">
@@ -69,7 +77,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {COURSES.map(course => {
-                     const percent = getCourseProgressPercent(course.id);
+                     const percent = courseProgressMap[course.id] || 0;
                      return (
                         <div key={course.id} className="bg-card border border-gray-800 p-5 rounded-2xl hover:border-gray-700 transition-all group">
                            <div className="flex justify-between items-start mb-4">
