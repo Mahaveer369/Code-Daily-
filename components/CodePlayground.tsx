@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
+import { db } from '../services/db';
 
 interface Props {
   initialCode: string;
@@ -105,6 +106,13 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
         setOutput(result.output || '');
         setError(result.error || 'Execution failed');
       }
+
+      const user = db.getCurrentUser();
+      db.logSecurityEvent({
+        type: 'EXECUTION',
+        details: `Executed ${language} code. Success: ${result.success}`,
+        userId: user?.id
+      });
 
       // Add to history
       setHistory(prev => [{
