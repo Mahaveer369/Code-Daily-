@@ -36,22 +36,26 @@ const App: React.FC = () => {
 
     // Also listen to Firebase auth state for Google login persistence
     const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      if (firebaseUser && !user) {
-        // User is logged in via Firebase but not in our local state
-        const userProfile: UserProfile = {
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          email: firebaseUser.email || '',
-          role: 'user',
-          streak: 0,
-          lastLogin: new Date().toISOString(),
-          xp: 0,
-          level: 1,
-          badges: []
-        };
-        db.saveUser(userProfile);
+      if (firebaseUser) {
+        // User is logged in via Firebase, check if cached user is same
+        const existingUsers = db.getUsers();
+        let userProfile = existingUsers[firebaseUser.email || ''] || db.getCurrentUser();
+
+        if (!userProfile || userProfile.email !== firebaseUser.email) {
+          userProfile = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            email: firebaseUser.email || '',
+            role: 'user',
+            streak: 0,
+            lastLogin: new Date().toISOString(),
+            xp: 0,
+            level: 1,
+            badges: []
+          };
+          db.saveUser(userProfile);
+        }
         setUser(userProfile);
-        setActiveTab('dashboard');
       }
     });
 
@@ -96,7 +100,12 @@ const App: React.FC = () => {
     }
   }, [activeTab, user]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+    } catch (err) {
+      console.warn("Firebase signout error:", err);
+    }
     db.logout();
     localStorage.removeItem('cs_active_tab');
     setUser(null);

@@ -14,8 +14,43 @@ const K_PROGRESS = 'cs_ai_progress_'; // + userId
 const K_BOOKMARKS = 'cs_ai_bookmarks_'; // + userId
 const K_CERTS = 'cs_ai_certs_'; // + userId
 const K_INDEX = 'cs_ai_course_index';
+const K_SECURITY_LOGS = 'cs_ai_security_logs';
+
+export interface SecurityLog {
+  timestamp: string;
+  type: 'AUTH_SUCCESS' | 'AUTH_FAILURE' | 'LOGOUT' | 'EXECUTION' | 'SESSION_RESTORE';
+  details: string;
+  userId?: string;
+}
 
 export const db = {
+  // --- AUDIT & SECURITY LOGGING ---
+  logSecurityEvent: (event: Omit<SecurityLog, 'timestamp'>) => {
+    try {
+      const logsStr = localStorage.getItem(K_SECURITY_LOGS);
+      const logs: SecurityLog[] = logsStr ? JSON.parse(logsStr) : [];
+      const newLog: SecurityLog = {
+        ...event,
+        timestamp: new Date().toISOString()
+      };
+      logs.unshift(newLog);
+      // Keep last 100 audit events
+      if (logs.length > 100) logs.pop();
+      localStorage.setItem(K_SECURITY_LOGS, JSON.stringify(logs));
+    } catch (e) {
+      console.error("[DB] Failed to log security event", e);
+    }
+  },
+
+  getSecurityLogs: (): SecurityLog[] => {
+    try {
+      const logsStr = localStorage.getItem(K_SECURITY_LOGS);
+      return logsStr ? JSON.parse(logsStr) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
   // --- AUTH & USERS ---
   
   // Create or Update User
@@ -24,6 +59,11 @@ export const db = {
     users[user.email] = user;
     localStorage.setItem(K_USERS, JSON.stringify(users));
     localStorage.setItem(K_SESSION, JSON.stringify(user)); // Set active session
+    db.logSecurityEvent({
+      type: 'AUTH_SUCCESS',
+      details: `User logged in or updated profile: ${user.email}`,
+      userId: user.id
+    });
   },
 
   getUsers: (): Record<string, UserProfile> => {
@@ -37,6 +77,14 @@ export const db = {
   },
 
   logout: () => {
+    const user = db.getCurrentUser();
+    if (user) {
+      db.logSecurityEvent({
+        type: 'LOGOUT',
+        details: `User logged out: ${user.email}`,
+        userId: user.id
+      });
+    }
     localStorage.removeItem(K_SESSION);
   },
 
