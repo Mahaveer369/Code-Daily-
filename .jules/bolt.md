@@ -1,3 +1,6 @@
 ## 2024-08-01 - React.memo on Static Renderers
 **Learning:** Complex static renderers (like MarkdownRenderer) that do string parsing and regex matching are prime targets for unnecessary re-renders when embedded in components with frequently updating state (like ChatBot receiving stream chunks). The default shallow compare in React.memo is highly effective here since the props (`content` string) are primitive.
 **Action:** Always check if expensive UI components are being re-rendered unnecessarily in loops or during stream updates, and wrap them in React.memo if their props are primarily static primitives or primitive-like objects.
+## 2024-05-18 - Replacing nested find in loop with useMemo Map
+**Learning:** In React components like `Dashboard`, doing `.find()` inside a `.map()` loop (e.g. mapping `COURSES` and finding progress in `userProgress`) results in an O(N*M) time complexity. For lists that might grow, this causes unnecessary main thread blocking during renders.
+**Action:** Replace the `Array.find` operation by pre-calculating the derived data into a hash map (`Map` object) using `useMemo` at the top level of the component. This reduces the complexity to O(N+M) and avoids repeated work during re-renders, while maintaining readability.
