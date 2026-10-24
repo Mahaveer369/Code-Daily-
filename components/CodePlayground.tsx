@@ -26,7 +26,7 @@ interface ExecutionHistory {
 }
 
 // API base URL - adjust for production
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
   const [code, setCode] = useState(initialCode || '# Write your code here\nprint("Hello, World!")');

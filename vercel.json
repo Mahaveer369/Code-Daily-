@@ -1,0 +1,75 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "app": {
+      "root": ".",
+      "framework": "vite"
+    },
+    "backend": {
+      "root": "backend",
+      "framework": "django",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "executor_service",
+          "format": "url",
+          "env": "EXECUTOR_SERVICE_URL"
+        }
+      ]
+    },
+    "executor_service": {
+      "root": "executor_service",
+      "framework": "fastapi"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/admin(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/auth(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/courses(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/progress(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/quizzes(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/ai(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/api(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "app"
+      }
+    }
+  ]
+}

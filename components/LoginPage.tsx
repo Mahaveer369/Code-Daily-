@@ -43,7 +43,8 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
 
       // Optionally sync with backend
       try {
-        await fetch('http://localhost:8000/auth/google/', {
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        await fetch(`${apiUrl}/auth/google/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
