@@ -55,7 +55,7 @@ class ExecuteCodeView(APIView):
             language = 'javascript'
         
         # Get executor service URL
-        executor_url = os.getenv('EXECUTOR_SERVICE_URL', 'http://localhost:8001')
+        executor_url = os.getenv('EXECUTOR_SERVICE_URL', 'http://localhost:8001').rstrip('/')
         
         try:
             # Call the executor service
@@ -156,7 +156,7 @@ class ExecutorHealthView(APIView):
     permission_classes = [AllowAny]
     
     def get(self, request):
-        executor_url = os.getenv('EXECUTOR_SERVICE_URL', 'http://localhost:8001')
+        executor_url = os.getenv('EXECUTOR_SERVICE_URL', 'http://localhost:8001').rstrip('/')
         
         try:
             with httpx.Client(timeout=5.0) as client:
