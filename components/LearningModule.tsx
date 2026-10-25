@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Course, CourseModule, LessonContent, Category } from '../types';
 import { generateLessonContent } from '../services/gemini';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -110,6 +110,18 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkNote, setBookmarkNote] = useState('');
 
+  // ⚡ Bolt: Memoized activeModuleIndex to avoid redundant O(N) array lookups during render and effect triggers.
+  const activeModuleIndex = useMemo(() => {
+    if (!selectedCourse || !activeModule) return -1;
+    return selectedCourse.modules.findIndex(m => m.id === activeModule.id);
+  }, [selectedCourse, activeModule]);
+
+  // ⚡ Bolt: Memoized nextModule to prevent unnecessary recalculations across renders and interactions.
+  const nextModuleMemo = useMemo(() => {
+    if (!selectedCourse || activeModuleIndex === -1 || activeModuleIndex >= selectedCourse.modules.length - 1) return null;
+    return selectedCourse.modules[activeModuleIndex + 1];
+  }, [selectedCourse, activeModuleIndex]);
+
   // --- PREFETCHING ENGINE ---
   useEffect(() => {
     if (!activeModule || !selectedCourse) return;
@@ -126,8 +138,7 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
         setLessonContent(content);
         setLoading(false);
 
-        const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
-        const nextModule = selectedCourse.modules[currentIndex + 1];
+        const nextModule = nextModuleMemo;
 
         if (nextModule && !db.hasLesson(nextModule.id)) {
           generateLessonContent(nextModule.id, nextModule.title, selectedCourse.category)
@@ -141,13 +152,12 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
     };
 
     loadCurrentAndPrefetchNext();
-  }, [activeModule, selectedCourse]);
+  }, [activeModule, selectedCourse, nextModuleMemo]);
 
   const handleNextModule = () => {
     if (!selectedCourse || !activeModule) return;
-    const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
-    if (currentIndex >= 0 && currentIndex < selectedCourse.modules.length - 1) {
-      setActiveModule(selectedCourse.modules[currentIndex + 1]);
+    if (nextModuleMemo) {
+      setActiveModule(nextModuleMemo);
     } else {
       setActiveModule(null); // Course Done
     }
@@ -246,7 +256,7 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
   }
 
   // 3. Lesson Content View
-  const nextModule = selectedCourse.modules[selectedCourse.modules.findIndex(m => m.id === activeModule.id) + 1];
+  const nextModule = nextModuleMemo;
 
   return (
     <div className="animate-fadeIn pb-24 relative">
