@@ -141,8 +141,9 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
+            <label htmlFor="email" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
             <input
+              id="email"
               type="email"
               required
               value={email}
@@ -153,8 +154,9 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
+            <label htmlFor="password" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
             <input
+              id="password"
               type="password"
               required
               value={password}
