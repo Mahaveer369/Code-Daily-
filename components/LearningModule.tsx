@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Course, CourseModule, LessonContent, Category } from '../types';
 import { generateLessonContent } from '../services/gemini';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -168,6 +168,21 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
     }
   };
 
+  // ⚡ Bolt: Moved synchronous localStorage reads (db.hasLesson) out of the render loop
+  // by tracking cached modules in a state. This prevents main thread blocking during
+  // course module list rendering and avoids stale UI bugs caused by improper memoization.
+  const [cachedModulesSet, setCachedModulesSet] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const cached = new Set<string>();
+    if (selectedCourse) {
+      selectedCourse.modules.forEach(m => {
+        if (db.hasLesson(m.id)) cached.add(m.id);
+      });
+    }
+    setCachedModulesSet(cached);
+  }, [selectedCourse, lessonContent]);
+
   // 1. Course Selection View
   if (!selectedCourse) {
     return (
@@ -223,7 +238,7 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
         </div>
         <div className="space-y-4 max-w-4xl">
           {selectedCourse.modules.map((module, idx) => {
-            const isCached = db.hasLesson(module.id);
+            const isCached = cachedModulesSet.has(module.id);
             return (
               <div key={module.id} onClick={() => setActiveModule(module)} className="bg-[#161b22] border border-gray-800 p-5 rounded-xl hover:border-gray-600 transition-all cursor-pointer flex items-center justify-between group">
                 <div className="flex items-center gap-5">
