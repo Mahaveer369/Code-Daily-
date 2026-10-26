@@ -3,6 +3,9 @@ import { LessonContent, UserProfile, CourseProgress, Bookmark, Certificate, Anal
 import { SEED_DATA } from './seedData';
 import { COURSES } from '../components/LearningModule';
 
+// Create a map for O(1) lookups instead of O(N) Array.find()
+const COURSES_MAP = new Map(COURSES.map(c => [c.id, c]));
+
 // Simple "Database" service wrapping LocalStorage to simulate a backend persistence layer
 const DB_PREFIX = 'cs_ai_';
 
@@ -107,7 +110,7 @@ export const db = {
       courseProg = {
         courseId,
         completedModuleIds: [],
-        totalModules: COURSES.find(c => c.id === courseId)?.modules.length || 10,
+        totalModules: COURSES_MAP.get(courseId)?.modules.length || 10,
         quizScores: {}
       };
       allProgress.push(courseProg);
@@ -135,8 +138,8 @@ export const db = {
     // Course Completion Certificate
     if (progress.completedModuleIds.length === progress.totalModules) {
       const certs = db.getCertificates(userId);
-      if (!certs.find(c => c.courseId === courseId)) {
-        const course = COURSES.find(c => c.id === courseId);
+      if (!certs.some(c => c.courseId === courseId)) {
+        const course = COURSES_MAP.get(courseId);
         certs.push({
           id: Date.now().toString(),
           courseId,
@@ -240,7 +243,7 @@ export const db = {
     });
     
     const popularId = Object.keys(courseCounts).sort((a,b) => courseCounts[b] - courseCounts[a])[0];
-    const popularCourse = COURSES.find(c => c.id === popularId)?.title || "None yet";
+    const popularCourse = COURSES_MAP.get(popularId)?.title || "None yet";
 
     return {
       totalUsers: userList.length,
