@@ -232,12 +232,23 @@ export const db = {
     
     // Find most popular course based on aggregated progress
     const courseCounts: Record<string, number> = {};
-    userList.forEach(u => {
-      const prog = db.getUserProgress(u.id);
-      prog.forEach(p => {
-        courseCounts[p.courseId] = (courseCounts[p.courseId] || 0) + 1;
-      });
-    });
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(K_PROGRESS)) {
+        const progStr = localStorage.getItem(key);
+        if (progStr) {
+          try {
+            const prog = JSON.parse(progStr) as CourseProgress[];
+            for (let j = 0; j < prog.length; j++) {
+              const cId = prog[j].courseId;
+              courseCounts[cId] = (courseCounts[cId] || 0) + 1;
+            }
+          } catch (e) {
+            // Ignore parse errors for corrupt data
+          }
+        }
+      }
+    }
     
     const popularId = Object.keys(courseCounts).sort((a,b) => courseCounts[b] - courseCounts[a])[0];
     const popularCourse = COURSES.find(c => c.id === popularId)?.title || "None yet";
