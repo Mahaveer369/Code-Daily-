@@ -1,6 +1,6 @@
 from rest_framework import generics
-from .models import Subject, Topic, Lesson
-from .serializers import SubjectSerializer, TopicSerializer, LessonSerializer
+from .models import Subject, Lesson
+from .serializers import SubjectSerializer, LessonSerializer
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 
