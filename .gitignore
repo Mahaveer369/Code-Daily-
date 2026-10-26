@@ -36,3 +36,8 @@ mcp-server/.env
 # Docker
 executor_service/__pycache__/
 executor_service/*.pyc
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
