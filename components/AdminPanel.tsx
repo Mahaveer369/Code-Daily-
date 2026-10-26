@@ -34,17 +34,18 @@ const AdminPanel: React.FC = () => {
 
     setLogs(prev => [...prev, `Found ${missingModules.length} missing modules.`]);
 
-    for (const item of missingModules) {
+    const promises = missingModules.map(async (item) => {
       setLogs(prev => [...prev, `Generating: ${item.module.title}...`]);
       try {
         await generateLessonContent(item.module.id, item.module.title, item.category);
         setLogs(prev => [...prev, `✅ Success: ${item.module.title}`]);
-        setAnalytics(db.getAnalytics()); 
-        await new Promise(r => setTimeout(r, 2000));
       } catch (error) {
         setLogs(prev => [...prev, `❌ Failed: ${item.module.title}`]);
       }
-    }
+    });
+
+    await Promise.all(promises);
+    setAnalytics(db.getAnalytics());
     setIsGenerating(false);
   };
 
