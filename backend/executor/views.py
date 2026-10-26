@@ -77,8 +77,7 @@ class ExecuteCodeView(APIView):
                     request.user if request.user.is_authenticated else None,
                     language,
                     code,
-                    result.get('success', False),
-                    result.get('execution_time_ms', 0)
+                    result
                 )
                 
                 return Response(result)
@@ -130,9 +129,11 @@ class ExecuteCodeView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    def _log_execution(self, user, language, code, success, execution_time_ms):
+    def _log_execution(self, user, language, code, result):
         """Log execution for analytics."""
         try:
+            success = result.get('success', False)
+            execution_time_ms = result.get('execution_time_ms', 0)
             code_hash = hashlib.sha256(code.encode()).hexdigest()
             ExecutionLog.objects.create(
                 user=user,
