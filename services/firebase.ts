@@ -22,34 +22,40 @@ import {
 } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC6JRK0s2xeVhe86q2lJEe6tl-OMuNPpuI",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "authentication-d87db.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "authentication-d87db",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "authentication-d87db.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "2529239430",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:2529239430:web:f7d7fa6fe8d8a524884c07",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-E3Z8QDBLNW"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ""
 };
 
+if (!firebaseConfig.apiKey) {
+  console.error("CRITICAL: Firebase API Key is missing. Please set VITE_FIREBASE_API_KEY.");
+}
+
 // Initialize or reuse Firebase App instance
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const app = firebaseConfig.apiKey ? (getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)) : null;
 
 // Initialize Auth
-const auth = getAuth(app);
+const auth = app ? getAuth(app) : null as any;
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Initialize Firestore with modern multi-tab offline cache (Firebase v10+)
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
-} catch {
-  // If already initialized in HMR environment, retrieve existing instance
-  firestoreDb = getFirestore(app);
+let firestoreDb: any = null;
+if (app) {
+  try {
+    firestoreDb = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
+  } catch {
+    // If already initialized in HMR environment, retrieve existing instance
+    firestoreDb = getFirestore(app);
+  }
 }
 
 export {
