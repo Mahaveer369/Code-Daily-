@@ -221,15 +221,19 @@ Return JSON with this structure:
 // --- Chat Service ---
 export class ChatService {
   async sendMessageStream(message: string): Promise<AsyncIterable<string>> {
-    const content = await callPerplexity(
-      "You are an expert CS tutor for Code IIT Out. Be concise, accurate, and code-focused.",
-      message
-    );
+    try {
+      const content = await callPerplexity(
+        "You are an expert CS tutor for Code IIT Out. Be concise, accurate, and code-focused.",
+        message
+      );
 
-    // Simulate streaming by yielding the full response
-    async function* textGenerator() {
-      yield content;
+      // Simulate streaming by yielding the full response
+      async function* textGenerator() {
+        yield content;
+      }
+      return textGenerator();
+    } catch (error) {
+      handleApiError(error);
     }
-    return textGenerator();
   }
 }
