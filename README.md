@@ -14,6 +14,53 @@ A comprehensive CS learning platform with **Docker-sandboxed code execution**, i
 
 ---
 
+## 📖 The Story So Far
+
+Code Daily started as a vision to create an interactive, secure, and robust platform for computer science education. Over its development cycle, it has evolved into a powerful multi-service application.
+
+Here is what has happened so far:
+1. **Interactive Frontend:** We built a highly responsive React frontend using Vite and TypeScript. We integrated the VS Code-powered **Monaco Editor** to provide syntax highlighting, auto-completion, and a terminal-like experience right in the browser.
+2. **Robust Backend:** A Django REST API was established to handle user requests, enforce rate limiting, and log code executions, ensuring the system remains stable under load.
+3. **Secure Sandboxing:** To allow users to run arbitrary Python, JavaScript, and SQL code safely, we implemented a FastAPI-based **Executor Service**. This service takes incoming code and runs it inside tightly constrained, ephemeral **Docker containers** (no network access, 100MB memory limit, 5s timeout).
+4. **AI Integration:** An MCP Server was built to provide intelligent documentation and learning tools. Jules (the AI Assistant) was heavily involved in shaping the features, optimizing the architecture, and squashing bugs.
+
+---
+
+## 🏗️ How the Code is Structured
+
+The repository is built on a modern **multi-service architecture** to ensure separation of concerns and high scalability.
+
+### 1. Frontend (`/components`, `/services`, `/root`)
+- **Tech:** React 19, Vite, TypeScript, Tailwind CSS, Monaco Editor.
+- **Role:** Presents the `CodePlayground` to the user. It handles the code editor state, captures user input, and simulates local persistence for lessons using `localStorage`.
+
+### 2. Django Backend (`/backend`)
+- **Tech:** Django, Django REST Framework, PostgreSQL.
+- **Role:** Acts as the primary API gateway. It receives code execution requests from the frontend, applies rate limits (30 req/min for authenticated, 10 for anonymous), logs executions, and routes the validated request to the Executor Service.
+
+### 3. FastAPI Executor Service (`/executor_service`)
+- **Tech:** FastAPI, Uvicorn, Docker SDK, Pydantic.
+- **Role:** Handles the actual execution of user code. It communicates with the host's Docker daemon to spin up isolated containers based on pre-built images for Python, JS, and SQL. It manages timeouts, memory limits, and captures `stdout/stderr`.
+
+### 4. MCP Server (`/mcp-server`)
+- **Tech:** Python.
+- **Role:** Provides AI-powered learning tools and intelligent documentation integrations.
+
+---
+
+## 🤖 What Jules Does
+
+**Jules** is the extremely skilled AI software engineering assistant working on this repository. Here is how Jules contributes to Code Daily:
+
+- **Feature Implementation:** Jules actively writes code across the entire stack. From building out React components in the frontend to wiring up complex asynchronous logic in the FastAPI Executor Service.
+- **Bug Squashing & Testing:** Jules identifies and resolves bugs. Jules writes and runs tests using `vitest` (Frontend), `pytest` (Executor/MCP), and Django's test framework to ensure everything runs smoothly.
+- **Code Refactoring & Optimization:** Jules ensures the codebase remains clean, performant, and adheres to best practices, such as mocking API calls during tests and correctly configuring Docker sandboxing.
+- **Documentation & Context:** Jules maintains up-to-date documentation (like this `README.md` and `KNOWLEDGE.md`) and strictly follows the instructions in the `AGENTS.md` and memory constraints to ensure code correctness and safety.
+
+Whenever a user requests a change, Jules explores the codebase, forms a step-by-step plan, verifies all actions, and ensures safe, tested code is committed.
+
+---
+
 ## ✨ Features
 
 - **🎯 Monaco Code Editor** - VS Code-powered editor with syntax highlighting, autocomplete, and bracket matching
@@ -23,35 +70,6 @@ A comprehensive CS learning platform with **Docker-sandboxed code execution**, i
 - **🤖 AI-Powered Assistance** - Integrated Perplexity API for intelligent help
 - **🔒 Rate Limiting** - 30 req/min (authenticated) or 10 req/min (anonymous)
 - **📝 MCP Server** - Intelligent documentation and learning tools
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          USER'S BROWSER                             │
-│                      CodePlayground (Monaco)                        │
-└────────────────────────────────┬────────────────────────────────────┘
-                                 │ POST /api/execute/
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    DJANGO BACKEND (:8000)                           │
-│             Rate Limiting • Auth • Logging                          │
-└────────────────────────────────┬────────────────────────────────────┘
-                                 │ POST /execute
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                 EXECUTOR SERVICE (:8001)                            │
-│            FastAPI + Docker SDK                                     │
-└────────────────────────────────┬────────────────────────────────────┘
-                                 │ docker.containers.run()
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                   DOCKER SANDBOX CONTAINER                          │
-│  100MB mem • 5s timeout • No network • Read-only FS                │
-└─────────────────────────────────────────────────────────────────────┘
-```
 
 ---
 
@@ -94,56 +112,6 @@ cd executor_service
 pip install -r requirements.txt
 python main.py
 ```
-
----
-
-## 📁 Project Structure
-
-```
-Code-Daily-/
-├── components/              # React components
-│   └── CodePlayground.tsx   # Monaco editor + execution UI
-├── backend/                 # Django REST API
-│   ├── executor/            # Code execution app
-│   │   ├── views.py         # API endpoints
-│   │   └── models.py        # ExecutionLog model
-│   └── config/              # Django settings
-├── executor_service/        # FastAPI code executor
-│   ├── main.py              # FastAPI application
-│   ├── executor.py          # Docker container management
-│   └── sandboxes/           # Dockerfile for each language
-├── mcp-server/              # MCP documentation tools
-│   └── tools.py             # AI-powered learning tools
-├── docker-compose.yml       # Multi-service orchestration
-├── KNOWLEDGE.md             # Complete technical documentation
-└── COMMANDS.md              # Terminal commands reference
-```
-
----
-
-## 🛡️ Security
-
-The Docker sandbox provides multiple layers of protection:
-
-| Constraint | Value | Purpose |
-|------------|-------|---------|
-| Memory | 100MB | Prevents memory bombs |
-| Timeout | 5 seconds | Prevents infinite loops |
-| Network | Disabled | No data exfiltration |
-| Filesystem | Read-only | Prevents persistence |
-| User | nobody | No privilege escalation |
-
----
-
-## 🔧 Tech Stack
-
-| Layer | Technologies |
-|-------|-------------|
-| **Frontend** | React 19, Vite, TypeScript, Monaco Editor |
-| **Backend** | Django, Django REST Framework, JWT Auth |
-| **Executor** | FastAPI, Docker SDK, Pydantic |
-| **Database** | PostgreSQL 15 |
-| **Orchestration** | Docker Compose |
 
 ---
 
