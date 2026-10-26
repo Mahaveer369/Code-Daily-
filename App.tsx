@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard';
 import LearningModule from './components/LearningModule';
 import LoginPage from './components/LoginPage';
 import AdminPanel from './components/AdminPanel';
+import CommandPalette from './components/CommandPalette';
 import { auth, getRedirectResult, sendPasswordResetEmail } from './services/firebase';
 
 type Tab = 'dashboard' | 'daily' | 'learn' | 'admin';
@@ -23,10 +24,40 @@ const App: React.FC = () => {
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loadingDaily, setLoadingDaily] = useState(false);
   
+  // Navigation & Deep Linking State
+  const [targetCourseId, setTargetCourseId] = useState<string | undefined>(undefined);
+  const [targetModuleId, setTargetModuleId] = useState<string | undefined>(undefined);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+
   // Account & Security Modal State
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [accountActionMsg, setAccountActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Global Command Palette Shortcut (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Online / Offline sync monitoring
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Check for session and sync with Firebase
   useEffect(() => {
@@ -185,10 +216,10 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex overflow-hidden">
+    <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex flex-col md:flex-row overflow-hidden">
 
-      {/* Sidebar Navigation */}
-      <aside className="w-20 lg:w-72 bg-[#1e293b]/30 backdrop-blur-xl border-r border-gray-800 flex flex-col justify-between py-8 z-20 transition-all">
+      {/* Desktop/Tablet Sidebar Navigation (hidden on mobile < md) */}
+      <aside className="hidden md:flex w-20 lg:w-72 bg-[#1e293b]/30 backdrop-blur-xl border-r border-gray-800 flex-col justify-between py-8 z-20 transition-all shrink-0">
         <div>
           <div className="px-4 lg:px-8 mb-10 flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0 transform rotate-3">
@@ -240,7 +271,7 @@ const App: React.FC = () => {
         <div className="px-4 lg:px-6">
           <div className="bg-gray-900/40 rounded-2xl p-4 border border-gray-800">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-b from-gray-700 to-gray-800 flex items-center justify-center text-sm font-bold ring-2 ring-gray-700 text-white">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-b from-gray-700 to-gray-800 flex items-center justify-center text-sm font-bold ring-2 ring-gray-700 text-white shrink-0">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="hidden lg:block overflow-hidden">
@@ -259,13 +290,14 @@ const App: React.FC = () => {
                 <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 </svg>
-                <span>Security & Account</span>
+                <span className="hidden lg:inline">Security & Account</span>
               </button>
               <button
                 onClick={handleLogout}
                 className="w-full py-1.5 text-xs font-semibold text-red-400 hover:text-red-300 flex items-center justify-center gap-2 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
               >
-                Sign Out
+                <span className="hidden lg:inline">Sign Out</span>
+                <span className="lg:hidden">Exit</span>
               </button>
             </div>
           </div>
@@ -273,26 +305,95 @@ const App: React.FC = () => {
       </aside>
 
       {/* Main Area */}
-      <main className="flex-1 overflow-y-auto relative scroll-smooth bg-[#0f172a]">
+      <main className="flex-1 overflow-y-auto relative scroll-smooth bg-[#0f172a] flex flex-col min-h-screen">
+
+        {/* Mobile Sticky Top Header (Visible on < md) */}
+        <div className="md:hidden sticky top-0 z-30 bg-[#0f172a]/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 transform rotate-2">
+              <span className="text-white font-bold text-sm">V</span>
+            </div>
+            <span className="font-bold text-base tracking-tight text-white">Code IIT Out</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Quick Search Button */}
+            <button
+              onClick={() => setIsCommandPaletteOpen(true)}
+              className="p-2 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60"
+              title="Search (Cmd+K)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            {/* User Streak Badge */}
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-300 text-xs font-semibold">
+              <span>🔥</span>
+              <span>{user.streak}d</span>
+            </div>
+
+            {/* User Avatar Button */}
+            <button
+              onClick={() => {
+                setAccountActionMsg(null);
+                setShowAccountModal(true);
+              }}
+              className="w-8 h-8 rounded-full bg-gradient-to-b from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold ring-2 ring-blue-500/50 text-white"
+            >
+              {user.name.charAt(0).toUpperCase()}
+            </button>
+          </div>
+        </div>
 
         {/* Decorative BG */}
         <div className="fixed top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-900/10 via-[#0f172a] to-[#0f172a] pointer-events-none"></div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10 relative z-10">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-8 py-6 sm:py-10 pb-28 md:pb-12 relative z-10 flex-1">
 
           {/* Header */}
-          <header className="flex justify-between items-end mb-10">
+          <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-white tracking-tight">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider font-mono">
+                  FAANG SDE-2 PREP
+                </span>
+                {!isOnline && (
+                  <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                    Offline Mode (Saved Locally)
+                  </span>
+                )}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 {activeTab === 'admin' ? 'System Administration' :
                   activeTab === 'daily' ? 'Daily Interview Mix' :
                     activeTab === 'learn' ? 'Learning Pathways' : 'Performance Dashboard'}
               </h2>
-              <p className="text-gray-400 mt-1">
-                {activeTab === 'dashboard' ? 'Track your progress and achievements' :
+              <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                {activeTab === 'dashboard' ? 'Track your progress, streaks and badges' :
                   activeTab === 'learn' ? 'Master key concepts with interactive modules' :
                     'Manage your daily goals'}
               </p>
+            </div>
+
+            {/* Google-Grade Command Palette Button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-4 px-3.5 py-2 bg-[#162032] border border-slate-700/80 hover:border-blue-500/60 rounded-xl text-slate-300 text-xs transition-all shadow-sm group"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <span>Quick search (modules, topics, code)...</span>
+                </div>
+                <kbd className="hidden sm:inline-flex items-center font-mono text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
+                  ⌘K
+                </kbd>
+              </button>
             </div>
           </header>
 
@@ -305,7 +406,11 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'learn' && (
-            <LearningModule onComplete={handleModuleComplete} />
+            <LearningModule
+              onComplete={handleModuleComplete}
+              initialCourseId={targetCourseId}
+              initialModuleId={targetModuleId}
+            />
           )}
 
           {activeTab === 'admin' && user.role === 'admin' && (
@@ -327,9 +432,69 @@ const App: React.FC = () => {
           )}
 
         </div>
+
+        {/* Mobile Bottom Navigation Bar (< md) */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0c121e]/95 backdrop-blur-xl border-t border-slate-800 flex items-center justify-around py-2 px-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            )},
+            { id: 'learn', label: 'Tracks', icon: (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            )},
+            { id: 'daily', label: 'Daily Mix', icon: (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            )},
+            ...(user.role === 'admin' ? [{ id: 'admin', label: 'Admin', icon: (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            )}] : [])
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id as Tab)}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
+                activeTab === item.id ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <svg className={`w-5 h-5 mb-0.5 ${activeTab === item.id ? 'text-blue-400' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {item.icon}
+              </svg>
+              <span className="text-[10px] font-semibold tracking-tight">{item.label}</span>
+            </button>
+          ))}
+
+          {/* Account Shortcut */}
+          <button
+            onClick={() => {
+              setAccountActionMsg(null);
+              setShowAccountModal(true);
+            }}
+            className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-200 transition-all"
+          >
+            <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white mb-0.5">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-[10px] font-semibold tracking-tight">Account</span>
+          </button>
+        </nav>
       </main>
 
       <ChatBot />
+
+      {/* Global Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={(tab, courseId, moduleId) => {
+          setActiveTab(tab);
+          if (courseId) setTargetCourseId(courseId);
+          if (moduleId) setTargetModuleId(moduleId);
+        }}
+        onOpenAccount={() => {
+          setAccountActionMsg(null);
+          setShowAccountModal(true);
+        }}
+      />
 
       {/* Account & Security Modal */}
       {showAccountModal && (

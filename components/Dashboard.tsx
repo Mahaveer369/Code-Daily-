@@ -34,32 +34,32 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick
    }, [userProgress]);
 
    return (
-      <div className="space-y-8 animate-fadeIn pb-12">
+      <div className="space-y-6 sm:space-y-8 animate-fadeIn pb-12">
          {/* Hero Section */}
-         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-700 to-indigo-800 p-8 shadow-2xl">
+         <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-700 to-indigo-800 p-5 sm:p-8 shadow-2xl">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-12 translate-x-12 pointer-events-none"></div>
             <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                <div>
-                  <h1 className="text-3xl font-bold text-white mb-2">Welcome back, {userName}!</h1>
-                  <p className="text-blue-100/80 max-w-lg">You've maintained a {progress.streak} day streak. Keep pushing your limits.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">Welcome back, {userName}!</h1>
+                  <p className="text-blue-100/80 text-xs sm:text-sm max-w-lg">You've maintained a {progress.streak} day streak. Keep pushing your limits.</p>
 
-                  <div className="flex gap-3 mt-6">
-                     <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/10 backdrop-blur-sm">
-                        <span className="text-xl">🔥</span> <span className="font-mono font-bold">{progress.streak} Day Streak</span>
+                  <div className="flex flex-wrap gap-2.5 sm:gap-3 mt-5">
+                     <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 rounded-full border border-white/10 backdrop-blur-sm text-xs sm:text-sm">
+                        <span className="text-lg sm:text-xl">🔥</span> <span className="font-mono font-bold">{progress.streak} Day Streak</span>
                      </div>
-                     <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/10 backdrop-blur-sm">
-                        <span className="text-xl">⚡</span> <span className="font-mono font-bold">{progress.xp} XP</span>
+                     <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 rounded-full border border-white/10 backdrop-blur-sm text-xs sm:text-sm">
+                        <span className="text-lg sm:text-xl">⚡</span> <span className="font-mono font-bold">{progress.xp} XP</span>
                      </div>
                   </div>
                </div>
 
                <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md w-full md:w-auto min-w-[200px]">
-                  <div className="text-xs text-blue-200 uppercase tracking-wider mb-2">Next Milestone</div>
-                  <div className="text-2xl font-bold text-white mb-1">Level {progress.level + 1}</div>
+                  <div className="text-[11px] text-blue-200 uppercase tracking-wider mb-2">Next Milestone</div>
+                  <div className="text-xl sm:text-2xl font-bold text-white mb-1">Level {progress.level + 1}</div>
                   <div className="w-full h-2 bg-black/20 rounded-full overflow-hidden">
                      <div className="h-full bg-blue-400" style={{ width: `${(progress.xp % 1000) / 10}%` }}></div>
                   </div>
-                  <div className="text-right text-xs text-blue-300 mt-1">{1000 - (progress.xp % 1000)} XP to go</div>
+                  <div className="text-right text-[11px] text-blue-300 mt-1">{1000 - (progress.xp % 1000)} XP to go</div>
                </div>
             </div>
          </div>

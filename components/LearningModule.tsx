@@ -119,19 +119,39 @@ export const COURSES: Course[] = [
 
 interface Props {
   onComplete: (moduleId: string) => void;
+  initialCourseId?: string;
+  initialModuleId?: string;
 }
 
 type DeckTab = 'code' | 'quiz' | 'interview' | 'resources';
 
-const LearningModule: React.FC<Props> = ({ onComplete }) => {
+const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialModuleId }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeModule, setActiveModule] = useState<CourseModule | null>(null);
   const [lessonContent, setLessonContent] = useState<LessonContent | null>(null);
   const [activeDeckTab, setActiveDeckTab] = useState<DeckTab>('code');
+  const [mobileZone, setMobileZone] = useState<'theory' | 'deck'>('theory');
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkNote, setBookmarkNote] = useState('');
   const [isBookmarked, setIsBookmarked] = useState(false);
+
+  // Sync initialCourseId / initialModuleId from deep links or command palette
+  useEffect(() => {
+    if (initialCourseId) {
+      const foundCourse = COURSES.find(c => c.id === initialCourseId);
+      if (foundCourse) {
+        setSelectedCourse(foundCourse);
+        if (initialModuleId) {
+          const foundMod = foundCourse.modules.find(m => m.id === initialModuleId);
+          if (foundMod) {
+            setActiveModule(foundMod);
+            setMobileZone('theory');
+          }
+        }
+      }
+    }
+  }, [initialCourseId, initialModuleId]);
 
   // Sync lesson content synchronously from in-memory curriculum
   useEffect(() => {
@@ -485,19 +505,65 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
         </div>
       </div>
 
+      {/* Mobile Surface Segmented Zone Switcher (< lg) */}
+      <div className="lg:hidden flex bg-[#0d1320] border-b border-slate-800 p-1.5 gap-1.5 sticky top-[49px] z-20">
+        <button
+          onClick={() => setMobileZone('theory')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            mobileZone === 'theory'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white bg-slate-900/60'
+          }`}
+        >
+          <span>📖 Concept & Trade-offs</span>
+        </button>
+        <button
+          onClick={() => setMobileZone('deck')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            mobileZone === 'deck'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white bg-slate-900/60'
+          }`}
+        >
+          <span>⚡ Lab & Sandbox</span>
+          {lessonContent?.quizzes?.length ? (
+            <span className="text-[10px] px-1.5 py-0.2 bg-blue-500/30 text-blue-200 rounded-full font-mono">
+              Quiz
+            </span>
+          ) : null}
+        </button>
+      </div>
+
       {/* Main Two-Zone Two-Column Layout */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
-        {/* Left Zone: Deep-Dive Technical Stage (60% width) */}
-        <div className="lg:col-span-7 p-6 lg:p-8 overflow-y-auto border-r border-slate-800/80 space-y-6">
+        {/* Left Zone: Deep-Dive Technical Stage (60% width on desktop, full on mobile when active) */}
+        <div className={`lg:col-span-7 p-4 sm:p-6 lg:p-8 overflow-y-auto border-r border-slate-800/80 space-y-6 ${
+          mobileZone === 'theory' ? 'block' : 'hidden lg:block'
+        }`}>
           {lessonContent && (
             <div className="prose prose-invert max-w-none">
               <MarkdownRenderer content={lessonContent.contentMarkdown} />
             </div>
           )}
+
+          {/* Quick jump to lab button on mobile */}
+          <div className="lg:hidden pt-4 pb-6 border-t border-slate-800/60">
+            <button
+              onClick={() => setMobileZone('deck')}
+              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
+            >
+              <span>Switch to Code Playground & Quiz</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {/* Right Zone: Interactive Concept Deck (40% width) */}
-        <div className="lg:col-span-5 flex flex-col bg-[#0e1422] overflow-y-auto">
+        {/* Right Zone: Interactive Concept Deck (40% width on desktop, full on mobile when active) */}
+        <div className={`lg:col-span-5 flex-col bg-[#0e1422] overflow-y-auto ${
+          mobileZone === 'deck' ? 'flex' : 'hidden lg:flex'
+        }`}>
           {/* Deck Tab Selector */}
           <div className="border-b border-slate-800 p-2 flex items-center gap-1 bg-slate-900/60 sticky top-0 z-20">
             {[
