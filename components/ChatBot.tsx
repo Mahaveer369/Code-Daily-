@@ -3,6 +3,98 @@ import { ChatMessage } from '../types';
 import { ChatService } from '../services/gemini';
 import MarkdownRenderer from './MarkdownRenderer';
 
+const ChatToggleButton: React.FC<{ isOpen: boolean; setIsOpen: (isOpen: boolean) => void }> = ({ isOpen, setIsOpen }) => (
+  <button
+    aria-expanded={isOpen}
+    onClick={() => setIsOpen(!isOpen)}
+    aria-label={isOpen ? "Close chat" : "Open chat"}
+    className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      isOpen ? 'bg-red-500 rotate-90' : 'bg-primary hover:bg-blue-600'
+    }`}
+  >
+    {isOpen ? (
+      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    ) : (
+      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      </svg>
+    )}
+  </button>
+);
+
+const ChatHeader: React.FC = () => (
+  <div className="p-4 border-b border-gray-700 bg-gray-800/50 rounded-t-2xl flex items-center gap-3">
+    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center">
+      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </div>
+    <div>
+      <h3 className="font-semibold text-white">CS Study Assistant</h3>
+      <p className="text-xs text-green-400 flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+        Powered by Gemini 3 Pro
+      </p>
+    </div>
+  </div>
+);
+
+const ChatMessageList: React.FC<{ messages: ChatMessage[]; messagesEndRef: React.RefObject<HTMLDivElement | null> }> = ({ messages, messagesEndRef }) => (
+  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    {messages.map((msg) => (
+      <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+          msg.role === 'user'
+            ? 'bg-primary text-white rounded-br-none'
+            : 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700'
+        }`}>
+          {msg.role === 'model' ? (
+             <div className="text-sm">
+                <MarkdownRenderer content={msg.text} />
+                {msg.isStreaming && <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"/>}
+             </div>
+          ) : (
+             <p className="text-sm">{msg.text}</p>
+          )}
+        </div>
+      </div>
+    ))}
+    <div ref={messagesEndRef} />
+  </div>
+);
+
+const ChatInputForm: React.FC<{
+  inputValue: string;
+  setInputValue: (value: string) => void;
+  handleSendMessage: (e: React.FormEvent) => void;
+  isLoading: boolean;
+}> = ({ inputValue, setInputValue, handleSendMessage, isLoading }) => (
+  <div className="p-4 border-t border-gray-700 bg-gray-800/30 rounded-b-2xl">
+    <form onSubmit={handleSendMessage} className="relative">
+      <input
+        aria-label="Chat message"
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        placeholder="Ask about complexity, design patterns..."
+        className="w-full bg-gray-900 border border-gray-700 text-white rounded-full py-3 px-4 pr-12 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus:border-transparent placeholder-gray-500"
+        disabled={isLoading}
+      />
+      <button
+        type="submit"
+        disabled={isLoading || !inputValue.trim()}
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gray-800 text-primary hover:text-white rounded-full hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9-2-9-18-9 18 9-2zm0 0v-8" />
+        </svg>
+      </button>
+    </form>
+  </div>
+);
+
 const ChatBot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -83,25 +175,7 @@ const ChatBot: React.FC = () => {
 
   return (
     <>
-      {/* Floating Action Button */}
-      <button
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label={isOpen ? "Close chat" : "Open chat"}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-          isOpen ? 'bg-red-500 rotate-90' : 'bg-primary hover:bg-blue-600'
-        }`}
-      >
-        {isOpen ? (
-          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-          </svg>
-        )}
-      </button>
+      <ChatToggleButton isOpen={isOpen} setIsOpen={setIsOpen} />
 
       {/* Chat Interface Panel */}
       <div className={`fixed bottom-24 right-6 z-40 w-full max-w-md bg-card border border-gray-700 rounded-2xl shadow-2xl transition-all duration-300 origin-bottom-right flex flex-col ${
@@ -109,68 +183,16 @@ const ChatBot: React.FC = () => {
       }`}
       style={{ height: '600px', maxHeight: '80vh' }}
       >
-        {/* Header */}
-        <div className="p-4 border-b border-gray-700 bg-gray-800/50 rounded-t-2xl flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-semibold text-white">CS Study Assistant</h3>
-            <p className="text-xs text-green-400 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-              Powered by Gemini 3 Pro
-            </p>
-          </div>
-        </div>
+        <ChatHeader />
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                msg.role === 'user' 
-                  ? 'bg-primary text-white rounded-br-none' 
-                  : 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700'
-              }`}>
-                {msg.role === 'model' ? (
-                   <div className="text-sm">
-                      <MarkdownRenderer content={msg.text} />
-                      {msg.isStreaming && <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"/>}
-                   </div>
-                ) : (
-                   <p className="text-sm">{msg.text}</p>
-                )}
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
+        <ChatMessageList messages={messages} messagesEndRef={messagesEndRef} />
 
-        {/* Input */}
-        <div className="p-4 border-t border-gray-700 bg-gray-800/30 rounded-b-2xl">
-          <form onSubmit={handleSendMessage} className="relative">
-            <input
-              aria-label="Chat message"
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask about complexity, design patterns..."
-              className="w-full bg-gray-900 border border-gray-700 text-white rounded-full py-3 px-4 pr-12 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus:border-transparent placeholder-gray-500"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !inputValue.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gray-800 text-primary hover:text-white rounded-full hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9-2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
-          </form>
-        </div>
+        <ChatInputForm
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          handleSendMessage={handleSendMessage}
+          isLoading={isLoading}
+        />
       </div>
     </>
   );
