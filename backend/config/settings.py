@@ -2,17 +2,26 @@ from pathlib import Path
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
 
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-default-key')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
+
+# SECURITY WARNING: keep the secret key used in production secret!
+env_secret_key = os.getenv('DJANGO_SECRET_KEY')
+
+if env_secret_key:
+    SECRET_KEY = env_secret_key
+elif DEBUG:
+    SECRET_KEY = get_random_secret_key()
+else:
+    raise ImproperlyConfigured("The DJANGO_SECRET_KEY setting must not be empty in production.")
 
 ALLOWED_HOSTS = ['*']
 
