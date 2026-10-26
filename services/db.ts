@@ -1,9 +1,19 @@
 
 import { LessonContent, UserProfile, CourseProgress, Bookmark, Certificate, AnalyticsData } from '../types';
 import { SEED_DATA } from './seedData';
+import { CURRICULUM_DATA } from './curriculum';
 import { COURSES } from '../components/LearningModule';
+import { firestoreDb, auth } from './firebase';
+import {
+  doc,
+  setDoc,
+  getDocs,
+  collection,
+  deleteDoc
+} from 'firebase/firestore';
+import { deleteUser } from 'firebase/auth';
 
-// Simple "Database" service wrapping LocalStorage to simulate a backend persistence layer
+// Simple "Database" service wrapping LocalStorage + Firestore cloud synchronization
 const DB_PREFIX = 'cs_ai_';
 
 // Keys
@@ -97,6 +107,26 @@ export const db = {
 
   saveUserProgress: (userId: string, progress: CourseProgress[]) => {
     localStorage.setItem(K_PROGRESS + userId, JSON.stringify(progress));
+
+    // Asynchronously synchronize progress to Firestore if authenticated
+    if (auth.currentUser && auth.currentUser.uid === userId && firestoreDb) {
+      Promise.all(
+        progress.map(async (p) => {
+          try {
+            const courseRef = doc(firestoreDb, 'users', userId, 'progress', p.courseId);
+            await setDoc(courseRef, {
+              courseId: p.courseId,
+              completedModuleIds: p.completedModuleIds.slice(0, 50),
+              quizScores: p.quizScores || {},
+              lastAccessedModuleId: p.lastAccessedModuleId || '',
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+          } catch (syncErr) {
+            console.warn(`[Firestore] Progress sync notice for ${p.courseId}:`, syncErr);
+          }
+        })
+      ).catch(() => {});
+    }
   },
 
   markModuleComplete: (userId: string, courseId: string, moduleId: string, score: number) => {
@@ -137,14 +167,21 @@ export const db = {
       const certs = db.getCertificates(userId);
       if (!certs.find(c => c.courseId === courseId)) {
         const course = COURSES.find(c => c.id === courseId);
-        certs.push({
+        const newCert: Certificate = {
           id: Date.now().toString(),
           courseId,
           courseTitle: course?.title || 'Unknown Course',
           issueDate: new Date().toLocaleDateString(),
           verificationCode: Math.random().toString(36).substring(7).toUpperCase()
-        });
+        };
+        certs.push(newCert);
         localStorage.setItem(K_CERTS + userId, JSON.stringify(certs));
+
+        // Sync certificate to Firestore
+        if (auth.currentUser && auth.currentUser.uid === userId && firestoreDb) {
+          const certRef = doc(firestoreDb, 'users', userId, 'certificates', newCert.id);
+          setDoc(certRef, newCert).catch(err => console.warn('[Firestore] Cert sync notice:', err));
+        }
         
         // Add Badge
         user.badges.push({
@@ -173,11 +210,167 @@ export const db = {
     const bookmarks = db.getBookmarks(userId);
     bookmarks.push(bookmark);
     localStorage.setItem(K_BOOKMARKS + userId, JSON.stringify(bookmarks));
+
+    // Sync to Firestore
+    if (auth.currentUser && auth.currentUser.uid === userId && firestoreDb) {
+      const bookmarkRef = doc(firestoreDb, 'users', userId, 'bookmarks', bookmark.id);
+      setDoc(bookmarkRef, {
+        id: bookmark.id,
+        moduleId: bookmark.moduleId,
+        moduleTitle: bookmark.moduleTitle,
+        note: (bookmark.note || '').slice(0, 2000),
+        timestamp: bookmark.timestamp
+      }).catch(err => console.warn('[Firestore] Bookmark sync notice:', err));
+    }
   },
 
   removeBookmark: (userId: string, bookmarkId: string) => {
     const bookmarks = db.getBookmarks(userId).filter(b => b.id !== bookmarkId);
     localStorage.setItem(K_BOOKMARKS + userId, JSON.stringify(bookmarks));
+
+    // Delete from Firestore
+    if (auth.currentUser && auth.currentUser.uid === userId && firestoreDb) {
+      const bookmarkRef = doc(firestoreDb, 'users', userId, 'bookmarks', bookmarkId);
+      deleteDoc(bookmarkRef).catch(err => console.warn('[Firestore] Bookmark delete notice:', err));
+    }
+  },
+
+  // --- CLOUD SYNC & RECOVERY ---
+
+  /**
+   * Fetches cloud progress and bookmarks from Firestore and hydrates localStorage
+   */
+  syncUserDataFromCloud: async (userId: string): Promise<void> => {
+    if (!firestoreDb || !userId) return;
+
+    try {
+      // 1. Sync Progress subcollection
+      const progressCol = collection(firestoreDb, 'users', userId, 'progress');
+      const progressSnap = await getDocs(progressCol);
+      if (!progressSnap.empty) {
+        const cloudProgress: CourseProgress[] = [];
+        progressSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          cloudProgress.push({
+            courseId: data.courseId,
+            completedModuleIds: data.completedModuleIds || [],
+            totalModules: COURSES.find(c => c.id === data.courseId)?.modules.length || 10,
+            quizScores: data.quizScores || {},
+            lastAccessedModuleId: data.lastAccessedModuleId
+          });
+        });
+
+        // Merge with existing local progress (union of completed modules)
+        const localProgress = db.getUserProgress(userId);
+        const merged: CourseProgress[] = [...cloudProgress];
+        
+        localProgress.forEach(lp => {
+          const existing = merged.find(m => m.courseId === lp.courseId);
+          if (existing) {
+            existing.completedModuleIds = Array.from(new Set([...existing.completedModuleIds, ...lp.completedModuleIds]));
+            existing.quizScores = { ...existing.quizScores, ...lp.quizScores };
+          } else {
+            merged.push(lp);
+          }
+        });
+
+        localStorage.setItem(K_PROGRESS + userId, JSON.stringify(merged));
+      }
+
+      // 2. Sync Bookmarks subcollection
+      const bookmarksCol = collection(firestoreDb, 'users', userId, 'bookmarks');
+      const bookmarksSnap = await getDocs(bookmarksCol);
+      if (!bookmarksSnap.empty) {
+        const cloudBookmarks: Bookmark[] = [];
+        bookmarksSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          cloudBookmarks.push({
+            id: data.id,
+            moduleId: data.moduleId,
+            moduleTitle: data.moduleTitle,
+            note: data.note || '',
+            timestamp: data.timestamp
+          });
+        });
+        localStorage.setItem(K_BOOKMARKS + userId, JSON.stringify(cloudBookmarks));
+      }
+
+      // 3. Sync Certificates subcollection
+      const certsCol = collection(firestoreDb, 'users', userId, 'certificates');
+      const certsSnap = await getDocs(certsCol);
+      if (!certsSnap.empty) {
+        const cloudCerts: Certificate[] = [];
+        certsSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          cloudCerts.push({
+            id: data.id,
+            courseId: data.courseId,
+            courseTitle: data.courseTitle,
+            issueDate: data.issueDate,
+            verificationCode: data.verificationCode
+          });
+        });
+        localStorage.setItem(K_CERTS + userId, JSON.stringify(cloudCerts));
+      }
+
+      db.logSecurityEvent({
+        type: 'SESSION_RESTORE',
+        details: `Cloud synchronization completed for UID: ${userId}`,
+        userId
+      });
+    } catch (e) {
+      console.warn('[Firestore] Cloud sync skipped or failed gracefully:', e);
+    }
+  },
+
+  /**
+   * GDPR-compliant Firestore-First Cascade Account Deletion
+   * Deletes all subcollections and the parent user document first,
+   * purges local storage, and then deletes the auth credential.
+   */
+  deleteAccount: async (userId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // 1. Delete Firestore subcollections if authenticated
+      if (firestoreDb && auth.currentUser && auth.currentUser.uid === userId) {
+        // Delete progress docs
+        const progressSnap = await getDocs(collection(firestoreDb, 'users', userId, 'progress'));
+        await Promise.all(progressSnap.docs.map(d => deleteDoc(d.ref)));
+
+        // Delete bookmarks docs
+        const bookmarksSnap = await getDocs(collection(firestoreDb, 'users', userId, 'bookmarks'));
+        await Promise.all(bookmarksSnap.docs.map(d => deleteDoc(d.ref)));
+
+        // Delete certificates docs
+        const certsSnap = await getDocs(collection(firestoreDb, 'users', userId, 'certificates'));
+        await Promise.all(certsSnap.docs.map(d => deleteDoc(d.ref)));
+
+        // Delete user root doc
+        await deleteDoc(doc(firestoreDb, 'users', userId));
+      }
+
+      // 2. Purge local storage entries
+      localStorage.removeItem(K_PROGRESS + userId);
+      localStorage.removeItem(K_BOOKMARKS + userId);
+      localStorage.removeItem(K_CERTS + userId);
+      localStorage.removeItem(K_SESSION);
+      localStorage.removeItem('cs_active_tab');
+
+      // 3. Delete Firebase Auth User
+      if (auth.currentUser) {
+        await deleteUser(auth.currentUser);
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('[DB] Account deletion failure:', err);
+      if (err.code === 'auth/requires-recent-login') {
+        return {
+          success: false,
+          error: 'Security checkpoint: Please sign out, sign back in, and retry deletion.'
+        };
+      }
+      return { success: false, error: err.message || 'Failed to complete account deletion.' };
+    }
   },
 
   // --- CERTIFICATES ---
@@ -203,6 +396,7 @@ export const db = {
   },
 
   getLesson: (moduleId: string): LessonContent | null => {
+    if (CURRICULUM_DATA[moduleId]) return JSON.parse(JSON.stringify(CURRICULUM_DATA[moduleId]));
     if (SEED_DATA[moduleId]) return JSON.parse(JSON.stringify(SEED_DATA[moduleId]));
     try {
       const data = localStorage.getItem(`${K_LESSONS}${moduleId}`);
@@ -211,13 +405,13 @@ export const db = {
   },
 
   hasLesson: (moduleId: string): boolean => {
-    return !!SEED_DATA[moduleId] || !!localStorage.getItem(`${K_LESSONS}${moduleId}`);
+    return !!CURRICULUM_DATA[moduleId] || !!SEED_DATA[moduleId] || !!localStorage.getItem(`${K_LESSONS}${moduleId}`);
   },
 
   getAvailableModules: (): string[] => {
     const list = localStorage.getItem(K_INDEX);
     const localList = list ? JSON.parse(list) : [];
-    const seedList = Object.keys(SEED_DATA);
+    const seedList = Object.keys(CURRICULUM_DATA).concat(Object.keys(SEED_DATA));
     return Array.from(new Set([...seedList, ...localList]));
   },
 

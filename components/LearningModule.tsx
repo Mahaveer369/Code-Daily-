@@ -1,147 +1,169 @@
-
 import React, { useState, useEffect } from 'react';
 import { Course, CourseModule, LessonContent, Category } from '../types';
-import { generateLessonContent } from '../services/gemini';
 import MarkdownRenderer from './MarkdownRenderer';
 import { db } from '../services/db';
+import { getCurriculumLesson } from '../services/curriculum';
 import CodePlayground from './CodePlayground';
 import QuizComponent from './QuizComponent';
 
 export const COURSES: Course[] = [
   {
-    id: 'c1', title: 'Python Mastery', category: Category.PYTHON, icon: 'python',
+    id: 'c6',
+    title: 'System Design & Distributed Systems',
+    category: Category.SYSTEM_DESIGN,
+    icon: 'cloud',
     modules: [
-      { id: 'py-1', title: 'Intro & History', description: 'Origins, Zen of Python, and Interpreter', difficulty: 'Beginner', isLocked: false },
-      { id: 'py-2', title: 'Variables & Memory', description: 'Stack, Heap, and Object References', difficulty: 'Beginner', isLocked: false },
-      { id: 'py-3', title: 'Control Flow', description: 'Conditionals, Loops, and Bytecode', difficulty: 'Beginner', isLocked: false },
-      { id: 'py-4', title: 'Functions & Scope', description: 'LEGB Rule, Closures, and First-class citizens', difficulty: 'Intermediate', isLocked: false },
-      { id: 'py-5', title: 'Lists & Tuples', description: 'Dynamic Arrays vs Immutability', difficulty: 'Intermediate', isLocked: false },
+      { id: 'sd-1', title: 'Scalability Basics', description: 'Vertical vs Horizontal Scaling, QPS Math & SPOF', difficulty: 'Beginner', isLocked: false },
+      { id: 'sd-2', title: 'Load Balancing & Consistent Hashing', description: 'L4 vs L7, Maglev, Virtual Nodes & Direct Server Return', difficulty: 'Intermediate', isLocked: false },
+      { id: 'sd-3', title: 'Caching Strategies', description: 'Cache-Aside, Write-Through, LRU, Bloom Filters & Stampedes', difficulty: 'Intermediate', isLocked: false },
+      { id: 'sd-4', title: 'Database Sharding', description: 'Partition Keys, Scatter-Gather & 2-Phase Commit', difficulty: 'Advanced', isLocked: false },
+      { id: 'sd-5', title: 'Message Queues & Events', description: 'Kafka vs RabbitMQ, Partition Ordering & Idempotency', difficulty: 'Advanced', isLocked: false },
+      { id: 'sd-6', title: 'Microservices & Service Mesh', description: 'Envoy, Circuit Breakers, Bulkheads & Distributed Tracing', difficulty: 'Advanced', isLocked: false },
+      { id: 'sd-7', title: 'CAP & PACELC Theorem', description: 'Linearizability, Quorums (W+R>N) & Spanner TrueTime', difficulty: 'Expert', isLocked: false },
+      { id: 'sd-8', title: 'Design URL Shortener', description: 'Base62 Encoding, Token Range Allocation & 301 vs 302', difficulty: 'Expert', isLocked: false },
+      { id: 'sd-9', title: 'Design Twitter News Feed', description: 'Fan-out on Write vs Pull, Redis Lists & Celebrity Hybrid', difficulty: 'Expert', isLocked: false },
     ]
   },
   {
-    id: 'c2', title: 'CS Fundamentals', category: Category.CS_CORE, icon: 'cpu',
+    id: 'c5',
+    title: 'Distributed DBMS Internals',
+    category: Category.DBMS,
+    icon: 'database',
     modules: [
-      { id: 'cs-1', title: 'Number Systems', description: 'Binary, Octal, Hexadecimal Conversions', difficulty: 'Beginner', isLocked: false },
-      { id: 'cs-2', title: 'Boolean Logic', description: 'AND, OR, NOT, XOR Gates', difficulty: 'Beginner', isLocked: false },
-      { id: 'cs-3', title: 'Computer Architecture', description: 'CPU, ALU, Registers, Memory Hierarchy', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cs-4', title: 'Compilers & Interpreters', description: 'Lexing, Parsing, Code Generation', difficulty: 'Advanced', isLocked: false },
-      { id: 'cs-5', title: 'Networking Basics', description: 'OSI Model, TCP/IP, HTTP', difficulty: 'Intermediate', isLocked: false },
+      { id: 'db-1', title: 'Storage Engines & Row vs Columnar', description: 'Buffer Pool, Volcano Iterator & OLTP vs OLAP', difficulty: 'Beginner', isLocked: false },
+      { id: 'db-2', title: 'Schema Modeling at Scale', description: 'Cardinality, Junction Tables & Why FAANG Bans DB FKs', difficulty: 'Beginner', isLocked: false },
+      { id: 'db-3', title: 'Relational Model & Keys', description: 'Surrogate Keys, UUIDv7 vs v4 & Clustering Indexes', difficulty: 'Beginner', isLocked: false },
+      { id: 'db-4', title: 'Normalization & De-normalization', description: '1NF to BCNF & Intentional De-normalization for High Read', difficulty: 'Intermediate', isLocked: false },
+      { id: 'db-5', title: 'SQL Deep Dive & Query Plans', description: 'Window Functions, CTEs, Index Scans & Covering Indexes', difficulty: 'Intermediate', isLocked: false },
+      { id: 'db-6', title: 'Transactions & ACID (WAL)', description: 'Write-Ahead Logging, ARIES, fsync & Checkpointing', difficulty: 'Advanced', isLocked: false },
+      { id: 'db-7', title: 'Indexing: B+ Trees vs LSM Trees', description: 'Page Splits, SSTables, Write Amplification & RocksDB', difficulty: 'Advanced', isLocked: false },
+      { id: 'db-8', title: 'Concurrency: MVCC & 2PL', description: 'Snapshot Isolation, xmin/xmax, Write Skew & Phantoms', difficulty: 'Expert', isLocked: false },
     ]
   },
   {
-    id: 'c3', title: 'Operating Systems', category: Category.OOPS, icon: 'os',
+    id: 'c3',
+    title: 'Operating Systems & Concurrency',
+    category: Category.OOPS,
+    icon: 'os',
     modules: [
-      { id: 'os-1', title: 'Process Management', description: 'Process vs Thread, PCB, States', difficulty: 'Beginner', isLocked: false },
-      { id: 'os-2', title: 'CPU Scheduling', description: 'FCFS, SJF, Round Robin, Priority', difficulty: 'Intermediate', isLocked: false },
-      { id: 'os-3', title: 'Memory Management', description: 'Paging, Segmentation, Virtual Memory', difficulty: 'Intermediate', isLocked: false },
-      { id: 'os-4', title: 'Deadlocks', description: 'Detection, Prevention, Avoidance', difficulty: 'Advanced', isLocked: false },
-      { id: 'os-5', title: 'File Systems', description: 'Inodes, FAT, NTFS, ext4', difficulty: 'Intermediate', isLocked: false },
-      { id: 'os-6', title: 'Synchronization', description: 'Mutex, Semaphore, Monitors', difficulty: 'Advanced', isLocked: false },
+      { id: 'os-1', title: 'Process vs Thread Internals', description: 'Virtual Memory Map, PCB, TLB Flush & Context Switch Cost', difficulty: 'Beginner', isLocked: false },
+      { id: 'os-2', title: 'CPU Scheduling & Linux CFS', description: 'vruntime Red-Black Tree, Quantum & K8s CFS Throttling', difficulty: 'Intermediate', isLocked: false },
+      { id: 'os-3', title: 'Virtual Memory & Paging', description: '4-Level Page Tables, CR3, Page Faults & THP Caveats', difficulty: 'Intermediate', isLocked: false },
+      { id: 'os-4', title: 'Deadlocks & Coffman Conditions', description: 'Strict Lock Ordering, Cycle Detection & Priority Inversion', difficulty: 'Advanced', isLocked: false },
+      { id: 'os-5', title: 'File Systems & Inodes', description: 'Hard Links vs Soft Links, Inode Tables & Ext4 Block Maps', difficulty: 'Intermediate', isLocked: false },
+      { id: 'os-6', title: 'Synchronization: Mutex & Futex', description: 'Atomic CAS, Futex Fast-Path, Semaphores & ABA Problem', difficulty: 'Advanced', isLocked: false },
     ]
   },
   {
-    id: 'c4', title: 'Algorithms (DSA)', category: Category.DSA, icon: 'code',
+    id: 'c4',
+    title: 'Advanced Data Structures & Algorithms',
+    category: Category.DSA,
+    icon: 'code',
     modules: [
-      { id: 'ds-1', title: 'Complexity Analysis', description: 'Big O, Omega, Theta', difficulty: 'Beginner', isLocked: false },
-      { id: 'ds-2', title: 'Arrays', description: 'Contiguous memory & Resizing', difficulty: 'Beginner', isLocked: false },
-      { id: 'ds-3', title: 'Linked Lists', description: 'Pointers & Nodes', difficulty: 'Intermediate', isLocked: false },
-      { id: 'ds-4', title: 'Stacks & Queues', description: 'LIFO, FIFO, Deque', difficulty: 'Intermediate', isLocked: false },
-      { id: 'ds-5', title: 'Trees & BST', description: 'Binary Trees, Traversals, BST Operations', difficulty: 'Intermediate', isLocked: false },
-      { id: 'ds-6', title: 'Graphs', description: 'BFS, DFS, Shortest Path', difficulty: 'Advanced', isLocked: false },
-      { id: 'ds-7', title: 'Dynamic Programming', description: 'Memoization, Tabulation, Classic Problems', difficulty: 'Expert', isLocked: false },
+      { id: 'ds-1', title: 'Complexity & Amortization', description: 'Amortized Array Doubling Proof & Master Theorem', difficulty: 'Beginner', isLocked: false },
+      { id: 'ds-2', title: 'Arrays & Two Pointers', description: 'Cache Line Locality, Opposite Pointers & Sliding Window', difficulty: 'Beginner', isLocked: false },
+      { id: 'ds-3', title: 'Linked Lists & Floyd Cycle', description: 'Pointer Reversals, Sentinel Nodes & Tortoise and Hare', difficulty: 'Intermediate', isLocked: false },
+      { id: 'ds-4', title: 'Monotonic Stacks & Deques', description: 'Next Greater Element, Daily Temperatures & Sliding Max', difficulty: 'Intermediate', isLocked: false },
+      { id: 'ds-5', title: 'Trees & Balanced BSTs', description: 'In-Order Invariants, Lowest Common Ancestor & Serialization', difficulty: 'Intermediate', isLocked: false },
+      { id: 'ds-6', title: 'Graphs: BFS, DFS & Dijkstra', description: 'Topological Sort (Kahn), Shortest Path & Contraction', difficulty: 'Advanced', isLocked: false },
+      { id: 'ds-7', title: 'Dynamic Programming Patterns', description: '0/1 Knapsack, Space Optimization & Longest Subsequence', difficulty: 'Expert', isLocked: false },
     ]
   },
   {
-    id: 'c5', title: 'DBMS', category: Category.DBMS, icon: 'database',
+    id: 'c7',
+    title: 'Computer Networks & Distributed Protocols',
+    category: Category.NETWORKS,
+    icon: 'network',
     modules: [
-      { id: 'db-1', title: 'Introduction to DBMS', description: 'File System vs DBMS, Types of Databases', difficulty: 'Beginner', isLocked: false },
-      { id: 'db-2', title: 'ER Model', description: 'Entities, Relationships, ER Diagrams', difficulty: 'Beginner', isLocked: false },
-      { id: 'db-3', title: 'Relational Model', description: 'Tables, Keys, Constraints', difficulty: 'Beginner', isLocked: false },
-      { id: 'db-4', title: 'Normalization', description: '1NF, 2NF, 3NF, BCNF', difficulty: 'Intermediate', isLocked: false },
-      { id: 'db-5', title: 'SQL Deep Dive', description: 'Joins, Subqueries, Window Functions', difficulty: 'Intermediate', isLocked: false },
-      { id: 'db-6', title: 'Transactions & ACID', description: 'Atomicity, Consistency, Isolation, Durability', difficulty: 'Advanced', isLocked: false },
-      { id: 'db-7', title: 'Indexing', description: 'B-Trees, Hash Indexes, Query Optimization', difficulty: 'Advanced', isLocked: false },
-      { id: 'db-8', title: 'Concurrency Control', description: 'Locks, 2PL, MVCC', difficulty: 'Expert', isLocked: false },
+      { id: 'cn-1', title: 'OSI 7-Layer Encapsulation', description: 'PDUs, Ethernet Frames, IP Packets & ARP Protocol', difficulty: 'Beginner', isLocked: false },
+      { id: 'cn-2', title: 'TCP 3-Way Handshake & BBR', description: 'SYN Cookies, Flow Control, TIME_WAIT & Congestion', difficulty: 'Beginner', isLocked: false },
+      { id: 'cn-3', title: 'HTTP/1.1 vs HTTP/2 vs HTTP/3', description: 'Binary Framing, Head-of-Line Blocking, QUIC & UDP', difficulty: 'Intermediate', isLocked: false },
+      { id: 'cn-4', title: 'DNS Resolution & BGP Anycast', description: 'Recursive Hierarchy, Authoritative Servers & TTL Caching', difficulty: 'Intermediate', isLocked: false },
+      { id: 'cn-5', title: 'WebSockets & Socket Scaling', description: 'HTTP Upgrade Handshake, Linux Epoll & ulimit Tuning', difficulty: 'Intermediate', isLocked: false },
+      { id: 'cn-6', title: 'Network Security: TLS, CORS & XSS', description: 'TLS 1.3 0-RTT, HttpOnly Cookies, CSRF & Origin Rules', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-7', title: 'Proxies & Load Balancing', description: 'Nginx, HAProxy, Envoy xDS & Direct Server Return', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-8', title: 'CDNs & Edge Caching', description: 'Cache-Control Directives, Origin Shields & Tag Purges', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-9', title: 'REST vs GraphQL vs gRPC', description: 'Protocol Buffers, HTTP/2 Multiplexing & IDL Schemas', difficulty: 'Advanced', isLocked: false },
+      { id: 'cn-10', title: 'Network Diagnostics & tcpdump', description: 'tcpdump, ss, mtr, traceroute TTL & CLOSE_WAIT Bugs', difficulty: 'Expert', isLocked: false },
+      { id: 'cn-11', title: 'FAANG Interview: Design a CDN', description: 'Global Edge PoPs, Consistent Hashing & Cache Shields', difficulty: 'Expert', isLocked: false },
+      { id: 'cn-12', title: 'FAANG Interview: Video Streaming', description: 'Netflix/YouTube Chunking, HLS/DASH & Adaptive Bitrate', difficulty: 'Expert', isLocked: false },
     ]
   },
   {
-    id: 'c6', title: 'System Design', category: Category.SYSTEM_DESIGN, icon: 'cloud',
+    id: 'c1',
+    title: 'Python Internals & Execution Model',
+    category: Category.PYTHON,
+    icon: 'python',
     modules: [
-      { id: 'sd-1', title: 'Scalability Basics', description: 'Horizontal vs Vertical Scaling', difficulty: 'Beginner', isLocked: false },
-      { id: 'sd-2', title: 'Load Balancing', description: 'Round Robin, Consistent Hashing', difficulty: 'Intermediate', isLocked: false },
-      { id: 'sd-3', title: 'Caching', description: 'Redis, Memcached, CDN', difficulty: 'Intermediate', isLocked: false },
-      { id: 'sd-4', title: 'Database Sharding', description: 'Partitioning Strategies, Replication', difficulty: 'Advanced', isLocked: false },
-      { id: 'sd-5', title: 'Message Queues', description: 'Kafka, RabbitMQ, Event-Driven Architecture', difficulty: 'Advanced', isLocked: false },
-      { id: 'sd-6', title: 'Microservices', description: 'Service Discovery, API Gateway', difficulty: 'Advanced', isLocked: false },
-      { id: 'sd-7', title: 'CAP Theorem', description: 'Consistency, Availability, Partition Tolerance', difficulty: 'Expert', isLocked: false },
-      { id: 'sd-8', title: 'Design URL Shortener', description: 'End-to-End System Design', difficulty: 'Expert', isLocked: false },
-      { id: 'sd-9', title: 'Design Twitter', description: 'Feed Generation, Fan-out', difficulty: 'Expert', isLocked: false },
+      { id: 'py-1', title: 'CPython & Global Interpreter Lock', description: 'ceval.c Opcode Loop, PyObject & CPU-bound Concurrency', difficulty: 'Beginner', isLocked: false },
+      { id: 'py-2', title: 'Memory & Generational GC', description: 'Reference Counting, Cycles, Small Int Cache & Copy-On-Write', difficulty: 'Beginner', isLocked: false },
+      { id: 'py-3', title: 'Bytecode & PVM Stack Machine', description: 'dis Module, Opcode Evaluation & Comprehension Speedups', difficulty: 'Beginner', isLocked: false },
+      { id: 'py-4', title: 'Scoping (LEGB) & Closures', description: 'Lexical Cells, nonlocal, Decorators & Default Mutability', difficulty: 'Intermediate', isLocked: false },
+      { id: 'py-5', title: 'Lists vs Tuples: Memory Layout', description: 'Dynamic Array Resizing Formula, __slots__ & Immutability', difficulty: 'Intermediate', isLocked: false },
     ]
   },
   {
-    id: 'c7', title: 'Computer Networks', category: Category.NETWORKS, icon: 'network',
+    id: 'c2',
+    title: 'Computer Science Fundamentals',
+    category: Category.CS_CORE,
+    icon: 'cpu',
     modules: [
-      { id: 'cn-1', title: 'OSI Model Deep Dive', description: '7 Layers, PDUs, Encapsulation', difficulty: 'Beginner', isLocked: false },
-      { id: 'cn-2', title: 'TCP/IP Protocol Suite', description: 'TCP vs UDP, IP Addressing, Subnetting', difficulty: 'Beginner', isLocked: false },
-      { id: 'cn-3', title: 'HTTP & HTTPS', description: 'Request/Response, TLS Handshake, HTTP/2, HTTP/3', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cn-4', title: 'DNS & Domain Resolution', description: 'DNS Records, Recursive vs Iterative, DNSSEC', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cn-5', title: 'Sockets & WebSockets', description: 'TCP Sockets, Socket.io, Real-time Communication', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cn-6', title: 'Network Security', description: 'Firewalls, VPN, TLS/SSL, CORS, XSS, CSRF', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-7', title: 'Load Balancers & Proxies', description: 'L4 vs L7, Reverse Proxy, HAProxy, Nginx', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-8', title: 'CDNs & Edge Computing', description: 'Caching at Edge, Cloudflare, AWS CloudFront', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-9', title: 'REST vs GraphQL vs gRPC', description: 'API Design, Protocol Buffers, When to Use What', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-10', title: 'Network Troubleshooting', description: 'ping, traceroute, netstat, tcpdump, Wireshark', difficulty: 'Expert', isLocked: false },
-      { id: 'cn-11', title: 'FAANG Interview: Design CDN', description: 'End-to-End CDN Architecture', difficulty: 'Expert', isLocked: false },
-      { id: 'cn-12', title: 'FAANG Interview: Video Streaming', description: 'Netflix/YouTube Architecture, Adaptive Bitrate', difficulty: 'Expert', isLocked: false },
+      { id: 'cs-1', title: 'Number Systems & Floating Point', description: "Two's Complement & IEEE 754 Float Precision Traps", difficulty: 'Beginner', isLocked: false },
+      { id: 'cs-2', title: 'Boolean Logic & Bitwise Tricks', description: 'Bitmasks, Power of Two, Brian Kernighan & Single Number', difficulty: 'Beginner', isLocked: false },
+      { id: 'cs-3', title: 'Hardware Architecture & Caching', description: 'L1/L2/L3 Latencies, 64B Cache Lines & False Sharing', difficulty: 'Intermediate', isLocked: false },
+      { id: 'cs-4', title: 'Compilers, Interpreters & JIT', description: 'Lexing, AST, SSA Intermediate Form & V8 JIT Profiling', difficulty: 'Advanced', isLocked: false },
+      { id: 'cs-5', title: 'Networking Basics & Epoll', description: 'I/O Multiplexing, C10K Problem & select vs epoll', difficulty: 'Intermediate', isLocked: false },
     ]
-  },
+  }
 ];
 
 interface Props {
   onComplete: (moduleId: string) => void;
 }
 
+type DeckTab = 'code' | 'quiz' | 'interview' | 'resources';
+
 const LearningModule: React.FC<Props> = ({ onComplete }) => {
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeModule, setActiveModule] = useState<CourseModule | null>(null);
   const [lessonContent, setLessonContent] = useState<LessonContent | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activeDeckTab, setActiveDeckTab] = useState<DeckTab>('code');
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkNote, setBookmarkNote] = useState('');
+  const [isBookmarked, setIsBookmarked] = useState(false);
 
-  // --- PREFETCHING ENGINE ---
+  // Sync lesson content synchronously from in-memory curriculum
   useEffect(() => {
-    if (!activeModule || !selectedCourse) return;
-
-    const loadCurrentAndPrefetchNext = async () => {
-      setLoading(true);
-      setError(null);
+    if (!activeModule) {
       setLessonContent(null);
-      // Don't scroll to top - let user stay at current position
-      // Scroll will happen after content loads
+      return;
+    }
 
-      try {
-        const content = await generateLessonContent(activeModule.id, activeModule.title, selectedCourse.category);
-        setLessonContent(content);
-        setLoading(false);
+    // Resolve immediately with zero latency
+    const content = getCurriculumLesson(activeModule.id) || db.getLesson(activeModule.id);
+    if (content) {
+      setLessonContent(content);
+    } else {
+      // Fallback
+      setLessonContent({
+        id: activeModule.id,
+        title: activeModule.title,
+        estimatedReadingTime: '15 mins',
+        contentMarkdown: `# ${activeModule.title}\n\n${activeModule.description}\n\n*Reviewing curriculum materials.*`,
+        quizzes: [],
+        interviewQuestions: [],
+        resources: []
+      });
+    }
 
-        const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
-        const nextModule = selectedCourse.modules[currentIndex + 1];
-
-        if (nextModule && !db.hasLesson(nextModule.id)) {
-          generateLessonContent(nextModule.id, nextModule.title, selectedCourse.category)
-            .catch(e => console.warn(`[Prefetch] Failed for ${nextModule.id}`, e));
-        }
-
-      } catch (err: any) {
-        setError(err.message || "Failed to load lesson.");
-        setLoading(false);
-      }
-    };
-
-    loadCurrentAndPrefetchNext();
-  }, [activeModule, selectedCourse]);
+    // Check if bookmarked
+    const user = db.getCurrentUser();
+    if (user) {
+      const bookmarks = db.getBookmarks(user.id);
+      setIsBookmarked(bookmarks.some(b => b.moduleId === activeModule.id));
+    }
+  }, [activeModule]);
 
   const handleNextModule = () => {
     if (!selectedCourse || !activeModule) return;
@@ -149,11 +171,36 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
     if (currentIndex >= 0 && currentIndex < selectedCourse.modules.length - 1) {
       setActiveModule(selectedCourse.modules[currentIndex + 1]);
     } else {
-      setActiveModule(null); // Course Done
+      setActiveModule(null);
     }
   };
 
-  const handleBookmark = () => {
+  const handlePreviousModule = () => {
+    if (!selectedCourse || !activeModule) return;
+    const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
+    if (currentIndex > 0) {
+      setActiveModule(selectedCourse.modules[currentIndex - 1]);
+    }
+  };
+
+  const handleBookmarkToggle = () => {
+    if (!activeModule) return;
+    const user = db.getCurrentUser();
+    if (!user) return;
+
+    if (isBookmarked) {
+      const bookmarks = db.getBookmarks(user.id);
+      const match = bookmarks.find(b => b.moduleId === activeModule.id);
+      if (match) {
+        db.removeBookmark(user.id, match.id);
+        setIsBookmarked(false);
+      }
+    } else {
+      setShowBookmarkModal(true);
+    }
+  };
+
+  const handleSaveBookmark = () => {
     if (!activeModule) return;
     const user = db.getCurrentUser();
     if (user) {
@@ -161,202 +208,462 @@ const LearningModule: React.FC<Props> = ({ onComplete }) => {
         id: Date.now().toString(),
         moduleId: activeModule.id,
         moduleTitle: activeModule.title,
-        note: bookmarkNote || "Quick bookmark",
+        note: bookmarkNote || `Saved bookmark for ${activeModule.title}`,
         timestamp: Date.now()
       });
+      setIsBookmarked(true);
       setShowBookmarkModal(false);
+      setBookmarkNote('');
     }
   };
 
-  // 1. Course Selection View
+  // Filter courses by category tab
+  const filteredCourses = selectedCategory === 'all'
+    ? COURSES
+    : COURSES.filter(c => c.category === selectedCategory);
+
+  // VIEW 1: Pathways & Tracks Browser
   if (!selectedCourse) {
     return (
-      <div className="animate-fadeIn">
-        <h2 className="text-3xl font-bold text-white mb-2">Code IIT Out Pathways</h2>
-        <p className="text-gray-400 mb-8">Select a track to start mastering concepts.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {COURSES.map(course => (
-            <div
-              key={course.id}
-              onClick={() => setSelectedCourse(course)}
-              className="group relative bg-[#161b22] border border-gray-800 hover:border-blue-500/50 rounded-2xl p-6 cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1"
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="text-xs font-semibold tracking-wider uppercase text-blue-400 mb-2">
+            Engineering Academy · FAANG SDE-2 Curriculum
+          </div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">
+            Computer Science & Systems Mastery
+          </h1>
+          <p className="text-slate-400 mt-2 max-w-3xl text-sm leading-relaxed">
+            Zero synthetic filler. In-depth practical systems architecture, low-level OS internals, high-scale database mechanisms, and algorithmic trade-offs benchmarked for senior technical interviews.
+          </p>
+        </div>
+
+        {/* Interactive Segmented Filter Controls */}
+        <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-900/80 rounded-xl border border-slate-800 mb-8 max-w-fit">
+          {[
+            { id: 'all', label: 'All Tracks' },
+            { id: Category.SYSTEM_DESIGN, label: 'System Design' },
+            { id: Category.DBMS, label: 'Distributed DBMS' },
+            { id: Category.OOPS, label: 'Operating Systems' },
+            { id: Category.DSA, label: 'Algorithms & DSA' },
+            { id: Category.NETWORKS, label: 'Networks & Protocols' },
+            { id: Category.PYTHON, label: 'Python Internals' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedCategory(tab.id)}
+              className={`px-3.5 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
+                selectedCategory === tab.id
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-white group-hover:bg-blue-600 group-hover:scale-110 transition-all duration-300 shadow-lg">
-                  <span className="text-2xl">{
-                    course.icon === 'python' ? '🐍' :
-                      course.icon === 'database' ? '🗄️' :
-                        course.icon === 'cloud' ? '☁️' :
-                          course.icon === 'cpu' ? '💻' :
-                            course.icon === 'os' ? '🖥️' :
-                              course.icon === 'code' ? '⚡' :
-                                course.icon === 'network' ? '🌐' : '📚'
-                  }</span>
-                </div>
-                <div className="px-2 py-1 rounded bg-gray-800 text-xs text-gray-400 font-mono">
-                  {course.modules.length} modules
-                </div>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">{course.title}</h3>
-              <p className="text-gray-400 text-sm mb-4">Zero to Hero curriculum.</p>
-              <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-500 w-1/4 h-full"></div>
-              </div>
-            </div>
+              {tab.label}
+            </button>
           ))}
         </div>
-      </div>
-    );
-  }
 
-  // 2. Module List View
-  if (!activeModule) {
-    return (
-      <div className="animate-fadeIn">
-        <button onClick={() => setSelectedCourse(null)} className="mb-6 flex items-center text-gray-400 hover:text-white transition-colors text-sm font-medium">
-          <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          Back to Pathways
-        </button>
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2">{selectedCourse.title}</h2>
-          <p className="text-gray-400 max-w-2xl">Complete curriculum designed for modern engineering interviews and production systems.</p>
-        </div>
-        <div className="space-y-4 max-w-4xl">
-          {selectedCourse.modules.map((module, idx) => {
-            const isCached = db.hasLesson(module.id);
+        {/* Course Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredCourses.map(course => {
+            const currentUser = db.getCurrentUser();
+            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+            const completedCount = progress?.completedModuleIds.length || 0;
+            const pct = Math.round((completedCount / course.modules.length) * 100);
+
             return (
-              <div key={module.id} onClick={() => setActiveModule(module)} className="bg-[#161b22] border border-gray-800 p-5 rounded-xl hover:border-gray-600 transition-all cursor-pointer flex items-center justify-between group">
-                <div className="flex items-center gap-5">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-sm font-bold transition-colors ${isCached ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'bg-gray-800 text-gray-500'}`}>{idx + 1}</div>
-                  <div>
-                    <h4 className="font-bold text-white text-lg flex items-center gap-3">
-                      {module.title}
-                      {isCached && <span className="text-[10px] uppercase bg-green-900/20 text-green-400 px-2 py-0.5 rounded border border-green-900/50 font-bold tracking-wide">Ready</span>}
-                    </h4>
-                    <p className="text-sm text-gray-500">{module.description}</p>
+              <div
+                key={course.id}
+                onClick={() => setSelectedCourse(course)}
+                className="group bg-[#161f30]/80 hover:bg-[#1a253a] border border-slate-800 hover:border-blue-500/40 rounded-2xl p-6 cursor-pointer transition-all duration-200 flex flex-col justify-between hover:shadow-xl hover:-translate-y-0.5"
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
+                      <span className="text-xl">
+                        {course.icon === 'cloud' ? '☁️' :
+                         course.icon === 'database' ? '🗄️' :
+                         course.icon === 'os' ? '🖥️' :
+                         course.icon === 'code' ? '⚡' :
+                         course.icon === 'network' ? '🌐' :
+                         course.icon === 'python' ? '🐍' : '💻'}
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-400 font-mono">
+                      {course.modules.length} Modules
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors mb-2">
+                    {course.title}
+                  </h3>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-400 mb-6">
+                    <span>SDE-2 Practical</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Runnable Sandboxes</span>
+                    <span aria-hidden="true">·</span>
+                    <span>ASCII Maps</span>
                   </div>
                 </div>
-                <svg className="w-5 h-5 text-gray-700 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+
+                <div>
+                  <div className="flex justify-between items-center text-xs text-slate-400 mb-2 font-mono">
+                    <span>Progress</span>
+                    <span>{completedCount} / {course.modules.length} completed ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-            )
+            );
           })}
         </div>
       </div>
     );
   }
 
-  // 3. Lesson Content View
-  const nextModule = selectedCourse.modules[selectedCourse.modules.findIndex(m => m.id === activeModule.id) + 1];
+  // VIEW 2: Modules Roadmap for Selected Course
+  if (!activeModule) {
+    const currentUser = db.getCurrentUser();
+    const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
+    const completedSet = new Set(progress?.completedModuleIds || []);
+
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <button
+          onClick={() => setSelectedCourse(null)}
+          className="mb-6 flex items-center text-slate-400 hover:text-white transition-colors text-xs font-semibold uppercase tracking-wider gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to All Tracks
+        </button>
+
+        <div className="mb-8">
+          <div className="text-xs font-semibold uppercase text-blue-400 tracking-wider mb-2">
+            Track Roadmap · FAANG SDE-2
+          </div>
+          <h2 className="text-3xl font-bold text-white">{selectedCourse.title}</h2>
+          <p className="text-slate-400 text-sm mt-2 max-w-2xl">
+            Step-by-step master roadmap covering production architectural trade-offs, internal algorithms, and coding sandboxes.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {selectedCourse.modules.map((module, idx) => {
+            const isCompleted = completedSet.has(module.id);
+            return (
+              <div
+                key={module.id}
+                onClick={() => setActiveModule(module)}
+                className="bg-[#141b2a] border border-slate-800 hover:border-slate-600 p-5 rounded-xl transition-all cursor-pointer flex items-center justify-between group hover:bg-[#182133]"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 transition-colors ${
+                    isCompleted
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h4 className="font-semibold text-white text-base group-hover:text-blue-300 transition-colors">
+                        {module.title}
+                      </h4>
+                      {isCompleted && (
+                        <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                          ✓ Completed
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">{module.description}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 shrink-0">
+                  <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+                    {module.difficulty}
+                  </span>
+                  <svg className="w-5 h-5 text-slate-600 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // VIEW 3: Interactive Two-Zone Workspace (Left Stage + Right Concept Deck)
+  const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
+  const nextModule = selectedCourse.modules[currentIndex + 1];
+  const prevModule = selectedCourse.modules[currentIndex - 1];
 
   return (
-    <div className="animate-fadeIn pb-24 relative">
-      <div className="flex items-center justify-between mb-8 border-b border-gray-800 pb-4 sticky top-0 bg-[#0f172a]/95 backdrop-blur z-30 py-4 px-4 -mx-4 shadow-xl">
-        <button onClick={() => setActiveModule(null)} className="flex items-center text-gray-400 hover:text-white transition-colors text-sm font-medium">
-          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          {selectedCourse.title}
-        </button>
-        <h2 className="text-lg font-bold text-white hidden md:block">{activeModule.title}</h2>
-        <button onClick={() => setShowBookmarkModal(true)} className="text-gray-400 hover:text-yellow-400 p-2 transition-colors">
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z" /></svg>
-        </button>
+    <div className="min-h-full flex flex-col bg-[#0b0f19]">
+      {/* Top Workspace Bar */}
+      <div className="border-b border-slate-800 bg-[#0f172a]/95 backdrop-blur-md px-4 py-3 sticky top-0 z-30 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => setActiveModule(null)}
+            className="text-xs font-semibold text-slate-400 hover:text-white transition-colors flex items-center gap-1 shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="hidden sm:inline">{selectedCourse.title}</span>
+          </button>
+          <span className="text-slate-600">/</span>
+          <h2 className="text-sm font-bold text-white truncate">
+            {activeModule.title}
+          </h2>
+          <span className="text-xs text-slate-400 hidden md:inline font-mono">
+            · {lessonContent?.estimatedReadingTime || '15 mins'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleBookmarkToggle}
+            className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+              isBookmarked
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title={isBookmarked ? "Remove Bookmark" : "Bookmark this Lesson"}
+          >
+            <svg className="w-4 h-4" fill={isBookmarked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            <span className="hidden sm:inline">{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
+          </button>
+
+          {prevModule && (
+            <button
+              onClick={handlePreviousModule}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white rounded-lg transition-colors"
+            >
+              Prev
+            </button>
+          )}
+
+          {nextModule ? (
+            <button
+              onClick={handleNextModule}
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white rounded-lg transition-colors flex items-center gap-1"
+            >
+              <span>Next</span>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                const user = db.getCurrentUser();
+                if (user && activeModule) {
+                  db.markModuleComplete(user.id, selectedCourse.id, activeModule.id, 100);
+                  onComplete(activeModule.id);
+                }
+                setActiveModule(null);
+              }}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white rounded-lg transition-colors"
+            >
+              Finish Track 🎉
+            </button>
+          )}
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-          <h3 className="text-xl font-bold text-white mb-2">Generating Lesson...</h3>
-          <p className="text-gray-500">Retrieving SVG diagrams and deep-dive content</p>
+      {/* Main Two-Zone Two-Column Layout */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
+        {/* Left Zone: Deep-Dive Technical Stage (60% width) */}
+        <div className="lg:col-span-7 p-6 lg:p-8 overflow-y-auto border-r border-slate-800/80 space-y-6">
+          {lessonContent && (
+            <div className="prose prose-invert max-w-none">
+              <MarkdownRenderer content={lessonContent.contentMarkdown} />
+            </div>
+          )}
         </div>
-      ) : lessonContent ? (
-        <div className="max-w-4xl mx-auto space-y-12">
 
-          {/* Main Content */}
-          <section>
-            <MarkdownRenderer content={lessonContent.contentMarkdown} svg={lessonContent.diagramSvg} />
-          </section>
+        {/* Right Zone: Interactive Concept Deck (40% width) */}
+        <div className="lg:col-span-5 flex flex-col bg-[#0e1422] overflow-y-auto">
+          {/* Deck Tab Selector */}
+          <div className="border-b border-slate-800 p-2 flex items-center gap-1 bg-slate-900/60 sticky top-0 z-20">
+            {[
+              { id: 'code', label: 'Code Sandbox' },
+              { id: 'quiz', label: 'Scenario Quiz' },
+              { id: 'interview', label: 'FAANG Questions' },
+              { id: 'resources', label: 'Docs & Papers' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveDeckTab(tab.id as DeckTab)}
+                className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap text-center ${
+                  activeDeckTab === tab.id
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          {/* Code Playground */}
-          {lessonContent.codingChallenge && (
-            <section className="mt-12">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <span className="text-yellow-400">&lt;/&gt;</span> Code Playground
-              </h3>
-              <div className="bg-[#161b22] border border-gray-800 rounded-xl p-6">
-                <h4 className="text-lg font-bold text-white mb-2">{lessonContent.codingChallenge.title}</h4>
-                <p className="text-gray-400 text-sm mb-4">{lessonContent.codingChallenge.description}</p>
+          {/* Deck Body */}
+          <div className="p-4 lg:p-6 flex-1 space-y-6">
+            {/* TAB 1: Code Sandbox */}
+            {activeDeckTab === 'code' && (
+              <div>
+                {lessonContent?.codingChallenge ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-base font-bold text-white mb-1">
+                        {lessonContent.codingChallenge.title}
+                      </h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {lessonContent.codingChallenge.description}
+                      </p>
+                    </div>
 
-                <CodePlayground
-                  initialCode={lessonContent.codingChallenge.starterCode}
-                  language={lessonContent.codingChallenge.language}
-                />
+                    <div className="border border-slate-800 rounded-xl overflow-hidden shadow-lg bg-[#141b2b]">
+                      <CodePlayground
+                        initialCode={lessonContent.codingChallenge.starterCode}
+                        language={lessonContent.codingChallenge.language}
+                      />
+                    </div>
 
-                <div className="mt-4 flex justify-between items-center">
-                  <div className="text-xs text-gray-500">Hint: {lessonContent.codingChallenge.hint}</div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Interview Questions */}
-          {lessonContent.interviewQuestions && lessonContent.interviewQuestions.length > 0 && (
-            <section className="bg-gradient-to-r from-purple-900/10 to-blue-900/10 border border-gray-800 rounded-xl p-6">
-              <h3 className="text-lg font-bold text-white mb-6">🎯 Interview Prep</h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                {lessonContent.interviewQuestions.map((q, i) => (
-                  <div key={i} className="bg-[#0d1117] p-4 rounded-lg border border-gray-800">
-                    <div className="text-sm font-medium text-gray-200 mb-3">{q.question}</div>
-                    <div className="text-xs text-gray-500 bg-black/20 p-3 rounded leading-relaxed">{q.answer}</div>
-                    {q.companyTag && <div className="mt-2 inline-block px-2 py-0.5 text-[10px] font-bold bg-white/10 text-gray-300 rounded-full">{q.companyTag}</div>}
+                    {lessonContent.codingChallenge.hint && (
+                      <div className="bg-blue-950/20 border border-blue-900/40 rounded-lg p-3 text-xs text-blue-300">
+                        <span className="font-semibold text-blue-200">Engineering Hint: </span>
+                        {lessonContent.codingChallenge.hint}
+                      </div>
+                    )}
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    No coding challenge for this theoretical overview module.
+                  </div>
+                )}
               </div>
-            </section>
-          )}
+            )}
 
-          {/* Quiz Component */}
-          {lessonContent.quizzes && lessonContent.quizzes.length > 0 && (
-            <QuizComponent
-              questions={lessonContent.quizzes}
-              onComplete={(score) => {
-                if (activeModule) onComplete(activeModule.id);
-              }}
-            />
-          )}
+            {/* TAB 2: Scenario Quiz */}
+            {activeDeckTab === 'quiz' && (
+              <div>
+                {lessonContent?.quizzes && lessonContent.quizzes.length > 0 ? (
+                  <QuizComponent
+                    questions={lessonContent.quizzes}
+                    onComplete={(score) => {
+                      const user = db.getCurrentUser();
+                      if (user && activeModule) {
+                        db.markModuleComplete(user.id, selectedCourse.id, activeModule.id, score);
+                        onComplete(activeModule.id);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    No quiz questions available for this module.
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* Navigation Footer */}
-          <div className="flex justify-end pt-8 border-t border-gray-800">
-            {nextModule ? (
-              <button onClick={handleNextModule} className="flex items-center gap-4 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-blue-500/20 transition-all transform hover:-translate-y-1">
-                <div className="text-right hidden sm:block">
-                  <div className="text-xs text-blue-200 uppercase tracking-wide font-semibold">Next Lesson</div>
-                  <div className="text-sm">{nextModule.title}</div>
+            {/* TAB 3: FAANG Questions */}
+            {activeDeckTab === 'interview' && (
+              <div className="space-y-4">
+                <div className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                  Verified SDE-2 Interview Questions
                 </div>
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </button>
-            ) : (
-              <button onClick={() => setActiveModule(null)} className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg">
-                <span>Complete Course</span>
-                <span className="text-2xl">🎉</span>
-              </button>
+                {lessonContent?.interviewQuestions && lessonContent.interviewQuestions.length > 0 ? (
+                  lessonContent.interviewQuestions.map((q, idx) => (
+                    <div key={idx} className="bg-[#141b2a] border border-slate-800 rounded-xl p-4 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-blue-400 font-mono">
+                          {q.companyTag || 'FAANG'} Question
+                        </span>
+                      </div>
+                      <div className="text-sm font-semibold text-white leading-snug">
+                        {q.question}
+                      </div>
+                      <div className="text-xs text-slate-400 bg-slate-900/80 p-3 rounded-lg leading-relaxed border border-slate-800/60 font-mono">
+                        {q.answer}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    No specific company interview records for this module.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: Resources */}
+            {activeDeckTab === 'resources' && (
+              <div className="space-y-4">
+                <div className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                  Authoritative Papers & Engineering Handbooks
+                </div>
+                {lessonContent?.resources && lessonContent.resources.length > 0 ? (
+                  lessonContent.resources.map((res, idx) => (
+                    <div key={idx} className="bg-[#141b2a] border border-slate-800 rounded-xl p-4 flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-bold text-white mb-1">{res.title}</div>
+                        <div className="text-xs text-slate-400 font-mono">
+                          {res.authorOrSource} · {res.type}
+                        </div>
+                      </div>
+                      <span className="text-xs text-blue-400 font-medium shrink-0">Verified</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    Core curriculum is fully self-contained.
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
-      ) : null}
+      </div>
 
       {/* Bookmark Modal */}
       {showBookmarkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-[#1e293b] w-full max-w-md rounded-2xl border border-gray-700 p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4">Add Note</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#161f30] w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-2">Bookmark Module</h3>
+            <p className="text-xs text-slate-400 mb-4">Add a personal engineering note to this topic for quick review later.</p>
             <textarea
               value={bookmarkNote}
               onChange={(e) => setBookmarkNote(e.target.value)}
-              className="w-full bg-[#0f172a] p-4 rounded-xl text-white mb-6 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
-              placeholder="What's important about this topic?"
-            ></textarea>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowBookmarkModal(false)} className="px-4 py-2 text-gray-400 hover:text-white font-medium">Cancel</button>
-              <button onClick={handleBookmark} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold shadow-lg">Save</button>
+              className="w-full bg-[#0b0f19] p-3 rounded-xl text-white text-sm mb-4 h-28 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 border border-slate-800 font-mono"
+              placeholder="e.g. Remember to review virtual nodes consistent hashing ring math before interview..."
+            />
+            <div className="flex justify-end gap-2.5">
+              <button
+                onClick={() => setShowBookmarkModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveBookmark}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white rounded-lg shadow-md"
+              >
+                Save Bookmark
+              </button>
             </div>
           </div>
         </div>

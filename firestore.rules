@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Auth validation helpers
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Zero-cost custom claims admin check (no database reads!)
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // User Profile Document
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Creation: Regular users cannot create themselves as admin
+      allow create: if isOwner(userId) && 
+        (!('role' in request.resource.data) || request.resource.data.role == 'user');
+        
+      // Self-update: Restrict mutation to profile metadata only (prevents role/score escalation)
+      allow update: if isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['displayName', 'photoURL', 'preferences', 'updatedAt', 'lastLogin']);
+          
+      // Admin update: Full management capability
+      allow update: if isAdmin();
+      
+      // Account Deletion: Users can delete their own account (GDPR compliance)
+      allow delete: if isOwner(userId) || isAdmin();
+      
+      // User Subcollections with strict schema validation
+      match /progress/{courseId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['courseId', 'completedModuleIds', 'quizScores', 'lastAccessedModuleId', 'updatedAt'])
+          && request.resource.data.completedModuleIds is list
+          && request.resource.data.completedModuleIds.size() <= 50;
+      }
+      
+      match /bookmarks/{bookmarkId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['id', 'moduleId', 'moduleTitle', 'note', 'timestamp'])
+          && request.resource.data.note is string
+          && request.resource.data.note.size() <= 2000;
+      }
+      
+      match /certificates/{certId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Curated Course Content: Public read for authenticated users, write restricted to admin
+    match /courses/{courseId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+      
+      match /modules/{moduleId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+      }
+    }
+  }
+}

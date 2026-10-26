@@ -99,7 +99,7 @@ export interface Course {
 
 export interface LessonResource {
   title: string;
-  type: 'Book' | 'Research Paper' | 'Documentation';
+  type: 'Book' | 'Research Paper' | 'Documentation' | 'Whitepaper' | 'RFC' | 'Engineering Blog';
   authorOrSource: string;
   url?: string; // Generated URL
 }

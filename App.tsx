@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { DailyPlan, UserProfile } from './types';
+import { DailyPlan, UserProfile, UserRole } from './types';
 import { generateDailyPlan } from './services/gemini';
 import { db } from './services/db';
 import DailyCard from './components/DailyCard';
@@ -9,7 +9,7 @@ import Dashboard from './components/Dashboard';
 import LearningModule from './components/LearningModule';
 import LoginPage from './components/LoginPage';
 import AdminPanel from './components/AdminPanel';
-import { auth } from './services/firebase';
+import { auth, getRedirectResult, sendPasswordResetEmail } from './services/firebase';
 
 type Tab = 'dashboard' | 'daily' | 'learn' | 'admin';
 
@@ -22,40 +22,100 @@ const App: React.FC = () => {
   });
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loadingDaily, setLoadingDaily] = useState(false);
+  
+  // Account & Security Modal State
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [accountActionMsg, setAccountActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Check for session and sync with Firebase
   useEffect(() => {
-    // First check localStorage
+    // 1. First check localStorage for instant render
     const cachedUser = db.getCurrentUser();
     if (cachedUser) {
       setUser(cachedUser);
       if (cachedUser.role === 'admin') setActiveTab('admin');
       else setActiveTab('dashboard');
-      return;
     }
 
-    // Also listen to Firebase auth state for Google login persistence
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+    // 2. Handle Google Sign-in redirect result (for browsers blocking popups)
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result && result.user) {
+          const fbUser = result.user;
+          let role: UserRole = 'user';
+          try {
+            const tokenResult = await fbUser.getIdTokenResult();
+            if (tokenResult.claims.admin) role = 'admin';
+          } catch (e) {
+            // Default to user role
+          }
+
+          const existingUsers = db.getUsers();
+          let profile = existingUsers[fbUser.email || ''];
+          if (!profile) {
+            profile = {
+              id: fbUser.uid,
+              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Engineer',
+              email: fbUser.email || '',
+              role,
+              streak: 1,
+              lastLogin: new Date().toISOString(),
+              xp: 100,
+              level: 1,
+              badges: []
+            };
+          } else {
+            profile.id = fbUser.uid;
+            profile.lastLogin = new Date().toISOString();
+          }
+
+          db.saveUser(profile);
+          setUser(profile);
+          await db.syncUserDataFromCloud(fbUser.uid);
+        }
+      })
+      .catch((err) => {
+        console.warn('[Auth] Redirect result listener notice:', err);
+      });
+
+    // 3. Listen to Firebase auth state for live token and session updates
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        // User is logged in via Firebase, check if cached user is same
+        let role: UserRole = 'user';
+        try {
+          const tokenResult = await firebaseUser.getIdTokenResult();
+          if (tokenResult.claims.admin) role = 'admin';
+        } catch (e) {
+          // Default to user
+        }
+
         const existingUsers = db.getUsers();
         let userProfile = existingUsers[firebaseUser.email || ''] || db.getCurrentUser();
 
-        if (!userProfile || userProfile.email !== firebaseUser.email) {
+        if (!userProfile || userProfile.id !== firebaseUser.uid) {
           userProfile = {
             id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Engineer',
             email: firebaseUser.email || '',
-            role: 'user',
-            streak: 0,
+            role,
+            streak: 1,
             lastLogin: new Date().toISOString(),
-            xp: 0,
+            xp: 100,
             level: 1,
             badges: []
           };
           db.saveUser(userProfile);
+        } else {
+          userProfile.id = firebaseUser.uid;
+          userProfile.role = role;
+          db.saveUser(userProfile);
         }
+
         setUser(userProfile);
+
+        // Synchronize cloud records from Firestore in background
+        db.syncUserDataFromCloud(firebaseUser.uid).catch(() => {});
       }
     });
 
@@ -188,9 +248,26 @@ const App: React.FC = () => {
                 <div className="text-xs text-gray-500 capitalize">{user.role} Account</div>
               </div>
             </div>
-            <button onClick={handleLogout} className="w-full py-1.5 text-xs font-semibold text-red-400 hover:text-red-300 flex items-center justify-center gap-2 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors">
-              Sign Out
-            </button>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => {
+                  setAccountActionMsg(null);
+                  setShowAccountModal(true);
+                }}
+                className="w-full py-1.5 text-xs font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 bg-slate-800/80 rounded-lg hover:bg-slate-700/80 transition-colors border border-slate-700/60"
+              >
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                </svg>
+                <span>Security & Account</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full py-1.5 text-xs font-semibold text-red-400 hover:text-red-300 flex items-center justify-center gap-2 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -253,6 +330,179 @@ const App: React.FC = () => {
       </main>
 
       <ChatBot />
+
+      {/* Account & Security Modal */}
+      {showAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-[#131b2c] w-full max-w-lg rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">Security & Account</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Firebase Authentication & Cloud Records</p>
+              </div>
+              <button
+                onClick={() => setShowAccountModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Notification Banner */}
+            {accountActionMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  accountActionMsg.type === 'success'
+                    ? 'bg-emerald-950/40 border border-emerald-800/60 text-emerald-300'
+                    : 'bg-red-950/40 border border-red-800/60 text-red-300'
+                }`}
+              >
+                <span>{accountActionMsg.text}</span>
+              </div>
+            )}
+
+            {/* Profile Information Block */}
+            <div className="space-y-3 bg-[#0b0f19] p-4 rounded-xl border border-slate-800/80">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">Student Name</span>
+                <span className="font-semibold text-white">{user.name}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">Authenticated Email</span>
+                <span className="font-mono text-slate-300">{user.email}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">Firebase UID</span>
+                <span className="font-mono text-slate-400 text-[11px] truncate max-w-[200px]" title={user.id}>
+                  {user.id}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">System Role</span>
+                <span className="text-blue-400 font-semibold uppercase text-[11px] tracking-wider">
+                  {user.role}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">Cloud Sync Status</span>
+                <span className="text-emerald-400 text-[11px] flex items-center gap-1.5 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Firestore Multi-Tab Active
+                </span>
+              </div>
+            </div>
+
+            {/* Actions Grid */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Actions & Data Portability</h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={async () => {
+                    setActionLoading(true);
+                    setAccountActionMsg(null);
+                    try {
+                      await sendPasswordResetEmail(auth, user.email);
+                      setAccountActionMsg({
+                        type: 'success',
+                        text: `Password reset instructions dispatched to ${user.email}.`
+                      });
+                    } catch (e: any) {
+                      setAccountActionMsg({
+                        type: 'error',
+                        text: e.message || 'Failed to dispatch reset email.'
+                      });
+                    } finally {
+                      setActionLoading(false);
+                    }
+                  }}
+                  className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 rounded-xl text-xs font-medium text-slate-200 hover:text-white transition-all text-left flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  <span>Reset Password</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const exportBlob = {
+                      profile: user,
+                      progress: db.getUserProgress(user.id),
+                      bookmarks: db.getBookmarks(user.id),
+                      certificates: db.getCertificates(user.id),
+                      exportedAt: new Date().toISOString()
+                    };
+                    const blob = new Blob([JSON.stringify(exportBlob, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `code_iit_out_records_${user.id.slice(0, 8)}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    setAccountActionMsg({
+                      type: 'success',
+                      text: 'Learning progress and certificates exported successfully.'
+                    });
+                  }}
+                  className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 rounded-xl text-xs font-medium text-slate-200 hover:text-white transition-all text-left flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Export Records (JSON)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Danger Zone: GDPR Cascade Account Deletion */}
+            <div className="pt-3 border-t border-slate-800">
+              <div className="p-4 bg-red-950/20 border border-red-900/40 rounded-xl flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs font-bold text-red-300">Delete Account & Data</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    Permanently purges Firestore cloud progress, bookmarks, and credentials.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={async () => {
+                    const ok = window.confirm(
+                      "Are you sure you want to permanently delete your account?\n\nThis will purge all your progress, bookmarks, certificates, and credentials from Firebase and cannot be reversed."
+                    );
+                    if (!ok) return;
+
+                    setActionLoading(true);
+                    setAccountActionMsg(null);
+                    const res = await db.deleteAccount(user.id);
+                    setActionLoading(false);
+
+                    if (res.success) {
+                      setUser(null);
+                      setShowAccountModal(false);
+                      setActiveTab('dashboard');
+                    } else {
+                      setAccountActionMsg({
+                        type: 'error',
+                        text: res.error || 'Failed to delete account.'
+                      });
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-600/40 rounded-lg text-xs font-semibold transition-colors shrink-0 disabled:opacity-50"
+                >
+                  {actionLoading ? 'Deleting...' : 'Delete Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
