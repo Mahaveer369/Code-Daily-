@@ -36,6 +36,8 @@ export interface ChatMessage {
 
 // --- New Types for Learning Platform ---
 
+export type Tab = 'dashboard' | 'daily' | 'learn' | 'admin';
+
 export type UserRole = 'admin' | 'user';
 
 export interface UserProfile {
