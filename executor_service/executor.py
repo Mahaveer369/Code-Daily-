@@ -196,57 +196,13 @@ except Exception as e:
             self._semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_EXECUTIONS)
         
         async def execute(self, code: str, language: str, stdin=None):
-            """Execute code using subprocess (development fallback)."""
-            import subprocess
-            import time
-            
-            async with self._semaphore:
-                start_time = time.time()
-                
-                try:
-                    if language == "python":
-                        result = subprocess.run(
-                            ["python3", "-c", code],
-                            capture_output=True,
-                            text=True,
-                            timeout=settings.EXECUTION_TIMEOUT_SECONDS
-                        )
-                    elif language in ["javascript", "js"]:
-                        result = subprocess.run(
-                            ["node", "-e", code],
-                            capture_output=True,
-                            text=True,
-                            timeout=settings.EXECUTION_TIMEOUT_SECONDS
-                        )
-                    elif language == "sql":
-                        # SQLite in-memory execution
-                        result = subprocess.run(
-                            ["sqlite3", ":memory:", code],
-                            capture_output=True,
-                            text=True,
-                            timeout=settings.EXECUTION_TIMEOUT_SECONDS
-                        )
-                    else:
-                        return False, "", f"Unsupported language: {language}", 0
-                    
-                    execution_time = int((time.time() - start_time) * 1000)
-                    
-                    if result.returncode == 0:
-                        return True, result.stdout, result.stderr if result.stderr else None, execution_time
-                    else:
-                        return False, result.stdout, result.stderr, execution_time
-                        
-                except subprocess.TimeoutExpired:
-                    return False, "", f"Execution timed out after {settings.EXECUTION_TIMEOUT_SECONDS}s", settings.EXECUTION_TIMEOUT_SECONDS * 1000
-                except FileNotFoundError as e:
-                    return False, "", f"Runtime not found: {e}", 0
-                except Exception as e:
-                    return False, "", str(e), 0
+            """Execute code securely by denying arbitrary host execution."""
+            return False, "", "Security constraint: Docker is unavailable. Direct host execution is disabled for safety.", 0
         
         def check_health(self):
-            return True
+            return False
         
         def list_images(self):
-            return ["python", "javascript", "sql"]
+            return []
     
     executor = SubprocessExecutor()
