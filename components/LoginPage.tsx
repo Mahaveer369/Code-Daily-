@@ -147,7 +147,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
         id: 'local_' + Math.random().toString(36).substring(2, 9),
         name: targetName,
         email: targetEmail,
-        role: targetEmail.includes('admin') ? 'admin' : 'user',
+        role: 'user', // Security fix: Never auto-assign admin role based on user input
         streak: 3,
         lastLogin: new Date().toISOString(),
         xp: 150,
