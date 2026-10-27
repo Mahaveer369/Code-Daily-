@@ -322,6 +322,7 @@ const App: React.FC = () => {
               onClick={() => setIsCommandPaletteOpen(true)}
               className="p-2 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60"
               title="Search (Cmd+K)"
+              aria-label="Search"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -508,6 +509,7 @@ const App: React.FC = () => {
               <button
                 onClick={() => setShowAccountModal(false)}
                 className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+                aria-label="Close modal"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
