@@ -286,13 +286,20 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCourses.map(course => {
+          {(() => {
+            // ⚡ Bolt: Extracted db calls outside map loop and replaced O(N) .find() with O(1) Map lookup
+            // Expected Impact: Reduces synchronous localStorage reads and time complexity from O(N*M) to O(N+M)
             const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
-            const completedCount = progress?.completedModuleIds.length || 0;
-            const pct = Math.round((completedCount / course.modules.length) * 100);
+            const userProgress = currentUser ? db.getUserProgress(currentUser.id) : [];
+            const progressMap = new Map();
+            userProgress.forEach(p => progressMap.set(p.courseId, p));
 
-            return (
+            return filteredCourses.map(course => {
+              const progress = progressMap.get(course.id) || null;
+              const completedCount = progress?.completedModuleIds.length || 0;
+              const pct = Math.round((completedCount / course.modules.length) * 100);
+
+              return (
               <div
                 key={course.id}
                 onClick={() => setSelectedCourse(course)}
@@ -341,8 +348,9 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                   </div>
                 </div>
               </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </div>
     );
