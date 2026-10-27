@@ -21,35 +21,48 @@ import {
   getFirestore
 } from "firebase/firestore";
 
+// SECURITY: Sentinel - Removed hardcoded Firebase API keys and secrets.
+// Configuration must strictly rely on environment variables to prevent secrets leakage.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC6JRK0s2xeVhe86q2lJEe6tl-OMuNPpuI",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "authentication-d87db.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "authentication-d87db",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "authentication-d87db.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "2529239430",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:2529239430:web:f7d7fa6fe8d8a524884c07",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-E3Z8QDBLNW"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize or reuse Firebase App instance
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+// Initialize or reuse Firebase App instance only if config is present
+const isConfigured = !!firebaseConfig.apiKey;
+const app = getApps().length > 0 ? getApp() : (isConfigured ? initializeApp(firebaseConfig) : null as any);
 
-// Initialize Auth
-const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-// Initialize Firestore with modern multi-tab offline cache (Firebase v10+)
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
-} catch {
-  // If already initialized in HMR environment, retrieve existing instance
-  firestoreDb = getFirestore(app);
+let auth: any = null;
+let firestoreDb: any = null;
+
+if (app) {
+  // Initialize Auth
+  auth = getAuth(app);
+
+  // Initialize Firestore with modern multi-tab offline cache (Firebase v10+)
+  try {
+    firestoreDb = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
+  } catch {
+    // If already initialized in HMR environment, retrieve existing instance
+    firestoreDb = getFirestore(app);
+  }
+} else {
+  console.warn("Firebase configuration is missing. Authentication and database services will be disabled.");
+  // Provide dummy mocks to avoid test suite crashes and runtime errors
+  auth = {} as any;
+  firestoreDb = {} as any;
 }
 
 export {
