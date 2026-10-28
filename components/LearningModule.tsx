@@ -286,9 +286,18 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCourses.map(course => {
+        {(() => {
             const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+          const userProgress = currentUser ? db.getUserProgress(currentUser.id) : [];
+
+          // ⚡ Bolt: Replaced expensive O(N) .find() and sync localStorage reads inside map loop with O(1) hash map lookup
+          // Expected Impact: Eliminates N+1 localStorage access overhead and reduces O(N*M) course rendering to O(N+M).
+          // Calculated directly in render to avoid stale closures with non-reactive external db service.
+          const progressMap = new Map();
+          userProgress.forEach(p => progressMap.set(p.courseId, p));
+
+          return filteredCourses.map(course => {
+            const progress = progressMap.get(course.id) || null;
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
@@ -342,7 +351,8 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                 </div>
               </div>
             );
-          })}
+          });
+        })()}
         </div>
       </div>
     );
