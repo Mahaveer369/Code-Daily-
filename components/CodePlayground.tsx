@@ -34,38 +34,13 @@ const executeInBrowser = (codeStr: string, lang: string): ExecutionResult => {
   const normalizedLang = lang.toLowerCase();
 
   if (normalizedLang === 'javascript' || normalizedLang === 'js') {
-    const logs: string[] = [];
-    const customConsole = {
-      log: (...args: any[]) => logs.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a))).join(' ')),
-      error: (...args: any[]) => logs.push('[Error] ' + args.join(' ')),
-      warn: (...args: any[]) => logs.push('[Warn] ' + args.join(' ')),
-      info: (...args: any[]) => logs.push(args.join(' ')),
+    return {
+      success: false,
+      output: '',
+      error: 'Client-side execution disabled for security. Please use the backend Docker sandbox.',
+      execution_time_ms: Math.max(1, Math.round(performance.now() - startTime)),
+      language: 'javascript'
     };
-
-    try {
-      const runner = new Function('console', `"use strict";\n${codeStr}`);
-      const result = runner(customConsole);
-      const timeMs = Math.max(1, Math.round(performance.now() - startTime));
-      let out = logs.join('\n');
-      if (!out && result !== undefined) {
-        out = String(result);
-      }
-      return {
-        success: true,
-        output: out || '✅ Code executed successfully (no output)',
-        error: null,
-        execution_time_ms: timeMs,
-        language: 'javascript'
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        output: logs.join('\n'),
-        error: err.message || String(err),
-        execution_time_ms: Math.max(1, Math.round(performance.now() - startTime)),
-        language: 'javascript'
-      };
-    }
   }
 
   if (normalizedLang === 'python' || normalizedLang === 'py') {
