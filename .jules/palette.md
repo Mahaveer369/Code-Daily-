@@ -1,3 +1,3 @@
-## 2024-05-14 - Icon-Only Chat Buttons Lack ARIA Labels
-**Learning:** Floating action buttons and icon-only inline buttons (like send message buttons) often lack text content. Without an `aria-label`, these critical interaction points are invisible or confusing to screen reader users.
-**Action:** Always ensure any icon-only interactive element, such as chat toggles or submit buttons without visible text, includes a descriptive `aria-label` attribute.
+## 2024-05-19 - Download Button Accessibility
+**Learning:** Icon-only buttons lacking `aria-label`s are an accessibility violation, and providing clear visual focus indicators ensures keyboard navigability.
+**Action:** Added `aria-label` and `focus-visible` styling to the "Download PDF" button in the Certificates section of the Dashboard component. Always ensure interactive elements are perceivable and operable by all users.
