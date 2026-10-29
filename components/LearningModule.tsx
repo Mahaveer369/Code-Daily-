@@ -244,6 +244,15 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 1: Pathways & Tracks Browser
   if (!selectedCourse) {
+    // ⚡ Bolt: Pre-calculate progress map to avoid expensive O(N) operations and synchronous
+    // localStorage reads (db.getUserProgress) inside the course render loop.
+    // Expected Impact: Reduces rendering time complexity from O(N*M) to O(N+M) and removes
+    // repeated localStorage reads per course.
+    const currentUser = db.getCurrentUser();
+    const userProgressList = currentUser ? db.getUserProgress(currentUser.id) : [];
+    const progressMap = new Map();
+    userProgressList.forEach(p => progressMap.set(p.courseId, p));
+
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
@@ -287,8 +296,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+            const progress = progressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
