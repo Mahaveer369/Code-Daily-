@@ -359,8 +359,9 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         <button
           onClick={() => setSelectedCourse(null)}
           className="mb-6 flex items-center text-slate-400 hover:text-white transition-colors text-xs font-semibold uppercase tracking-wider gap-2"
+          aria-label="Back to All Tracks"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back to All Tracks
@@ -437,8 +438,9 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
           <button
             onClick={() => setActiveModule(null)}
             className="text-xs font-semibold text-slate-400 hover:text-white transition-colors flex items-center gap-1 shrink-0"
+            aria-label={`Back to ${selectedCourse.title}`}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             <span className="hidden sm:inline">{selectedCourse.title}</span>
@@ -461,8 +463,9 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
             title={isBookmarked ? "Remove Bookmark" : "Bookmark this Lesson"}
+            aria-label={isBookmarked ? "Remove Bookmark" : "Bookmark this Lesson"}
           >
-            <svg className="w-4 h-4" fill={isBookmarked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill={isBookmarked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
             <span className="hidden sm:inline">{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
@@ -481,9 +484,10 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
             <button
               onClick={handleNextModule}
               className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white rounded-lg transition-colors flex items-center gap-1"
+              aria-label="Next Module"
             >
               <span>Next</span>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -551,9 +555,10 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
             <button
               onClick={() => setMobileZone('deck')}
               className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
+              aria-label="Switch to Code Playground and Quiz"
             >
               <span>Switch to Code Playground & Quiz</span>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
             </button>

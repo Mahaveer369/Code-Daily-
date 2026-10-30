@@ -329,8 +329,9 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
                 : 'text-gray-400 hover:text-white hover:bg-gray-700'
               }`}
             title="Execution History"
+            aria-label="Toggle Execution History"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </button>

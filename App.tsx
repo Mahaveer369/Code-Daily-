@@ -322,8 +322,9 @@ const App: React.FC = () => {
               onClick={() => setIsCommandPaletteOpen(true)}
               className="p-2 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60"
               title="Search (Cmd+K)"
+              aria-label="Open command palette"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
@@ -341,6 +342,7 @@ const App: React.FC = () => {
                 setShowAccountModal(true);
               }}
               className="w-8 h-8 rounded-full bg-gradient-to-b from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold ring-2 ring-blue-500/50 text-white"
+              aria-label="Account and security settings"
             >
               {user.name.charAt(0).toUpperCase()}
             </button>
@@ -470,6 +472,7 @@ const App: React.FC = () => {
               setShowAccountModal(true);
             }}
             className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-200 transition-all"
+            aria-label="Open account settings"
           >
             <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white mb-0.5">
               {user.name.charAt(0).toUpperCase()}
@@ -508,8 +511,9 @@ const App: React.FC = () => {
               <button
                 onClick={() => setShowAccountModal(false)}
                 className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+                aria-label="Close account modal"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
