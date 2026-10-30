@@ -162,10 +162,11 @@ const ChatBot: React.FC = () => {
             />
             <button
               type="submit"
+              aria-label="Send message"
               disabled={isLoading || !inputValue.trim()}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gray-800 text-primary hover:text-white rounded-full hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9-2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             </button>
