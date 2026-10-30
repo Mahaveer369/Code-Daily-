@@ -244,6 +244,18 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 1: Pathways & Tracks Browser
   if (!selectedCourse) {
+    // ⚡ Bolt: Extracted db.getCurrentUser() and db.getUserProgress() outside the render loop
+    // and replaced expensive O(N) .find() with O(1) hash map lookup.
+    // Expected Impact: Eliminates redundant synchronous localStorage reads per course
+    // and reduces time complexity of finding course progress from O(N*M) to O(N+M).
+    const currentUser = db.getCurrentUser();
+    const progressMap = new Map<string, number>();
+    if (currentUser) {
+      db.getUserProgress(currentUser.id).forEach(p => {
+        progressMap.set(p.courseId, p.completedModuleIds.length || 0);
+      });
+    }
+
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
@@ -287,9 +299,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
-            const completedCount = progress?.completedModuleIds.length || 0;
+            const completedCount = progressMap.get(course.id) || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
             return (
