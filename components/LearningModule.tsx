@@ -136,6 +136,18 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
   const [bookmarkNote, setBookmarkNote] = useState('');
   const [isBookmarked, setIsBookmarked] = useState(false);
 
+  // ⚡ Bolt: Pre-calculate derived user progress map directly in the render body
+  // to avoid expensive O(N) array searches and synchronous localStorage reads inside the map loop.
+  // We avoid useMemo here because reading from a non-reactive external store (localStorage via db.getUserProgress)
+  // causes stale closures.
+  const currentUser = db.getCurrentUser();
+  const userProgressMap = new Map();
+  if (currentUser) {
+    db.getUserProgress(currentUser.id).forEach(p => {
+      userProgressMap.set(p.courseId, p);
+    });
+  }
+
   // Sync initialCourseId / initialModuleId from deep links or command palette
   useEffect(() => {
     if (initialCourseId) {
@@ -178,7 +190,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
     }
 
     // Check if bookmarked
-    const user = db.getCurrentUser();
+    const user = currentUser;
     if (user) {
       const bookmarks = db.getBookmarks(user.id);
       setIsBookmarked(bookmarks.some(b => b.moduleId === activeModule.id));
@@ -205,7 +217,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   const handleBookmarkToggle = () => {
     if (!activeModule) return;
-    const user = db.getCurrentUser();
+    const user = currentUser;
     if (!user) return;
 
     if (isBookmarked) {
@@ -222,7 +234,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   const handleSaveBookmark = () => {
     if (!activeModule) return;
-    const user = db.getCurrentUser();
+    const user = currentUser;
     if (user) {
       db.addBookmark(user.id, {
         id: Date.now().toString(),
@@ -287,8 +299,8 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+            // ⚡ Bolt: Used pre-computed O(1) Map lookup instead of .find() and localStorage read
+            const progress = userProgressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
@@ -350,8 +362,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 2: Modules Roadmap for Selected Course
   if (!activeModule) {
-    const currentUser = db.getCurrentUser();
-    const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
+    const progress = userProgressMap.get(selectedCourse.id);
     const completedSet = new Set(progress?.completedModuleIds || []);
 
     return (
@@ -490,7 +501,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
           ) : (
             <button
               onClick={() => {
-                const user = db.getCurrentUser();
+                const user = currentUser;
                 if (user && activeModule) {
                   db.markModuleComplete(user.id, selectedCourse.id, activeModule.id, 100);
                   onComplete(activeModule.id);
@@ -631,7 +642,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                   <QuizComponent
                     questions={lessonContent.quizzes}
                     onComplete={(score) => {
-                      const user = db.getCurrentUser();
+                      const user = currentUser;
                       if (user && activeModule) {
                         db.markModuleComplete(user.id, selectedCourse.id, activeModule.id, score);
                         onComplete(activeModule.id);
