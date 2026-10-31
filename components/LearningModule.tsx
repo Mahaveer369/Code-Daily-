@@ -242,6 +242,14 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
     ? COURSES
     : COURSES.filter(c => c.category === selectedCategory);
 
+  // ⚡ Bolt: Pre-calculate user progress into O(1) hash map directly in render body
+  // to avoid repeated synchronous localStorage reads and O(N) array finds inside the loop.
+  // We avoid useMemo here because db (localStorage) is a non-reactive external store.
+  const currentUser = db.getCurrentUser();
+  const userProgress = currentUser ? db.getUserProgress(currentUser.id) : [];
+  const progressMap = new Map();
+  userProgress.forEach(p => progressMap.set(p.courseId, p));
+
   // VIEW 1: Pathways & Tracks Browser
   if (!selectedCourse) {
     return (
@@ -287,8 +295,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+            const progress = progressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
@@ -350,8 +357,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 2: Modules Roadmap for Selected Course
   if (!activeModule) {
-    const currentUser = db.getCurrentUser();
-    const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
+    const progress = progressMap.get(selectedCourse.id);
     const completedSet = new Set(progress?.completedModuleIds || []);
 
     return (

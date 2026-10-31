@@ -4,3 +4,6 @@
 ## 2024-05-18 - Replacing nested find in loop with useMemo Map
 **Learning:** In React components like `Dashboard`, doing `.find()` inside a `.map()` loop (e.g. mapping `COURSES` and finding progress in `userProgress`) results in an O(N*M) time complexity. For lists that might grow, this causes unnecessary main thread blocking during renders.
 **Action:** Replace the `Array.find` operation by pre-calculating the derived data into a hash map (`Map` object) using `useMemo` at the top level of the component. This reduces the complexity to O(N+M) and avoids repeated work during re-renders, while maintaining readability.
+## 2024-05-19 - Replacing nested find in loop with O(1) Map without useMemo
+**Learning:** We previously learned to replace `.find()` inside loops with O(1) hash maps. However, when the data source is a non-reactive external store (like synchronous reads from `localStorage` via `db.getUserProgress`), using `useMemo` can lead to stale closures because the React component doesn't know when the external store changes (since it's not React state).
+**Action:** Compute the O(1) lookup Map directly in the render body rather than wrapping it in `useMemo` when the data derives from non-reactive external sources like `localStorage`. The cost of computing an O(N) map on render is still much lower than an O(N*M) loop, and it prevents reactivity bugs.
