@@ -4,3 +4,6 @@
 ## 2024-05-18 - Replacing nested find in loop with useMemo Map
 **Learning:** In React components like `Dashboard`, doing `.find()` inside a `.map()` loop (e.g. mapping `COURSES` and finding progress in `userProgress`) results in an O(N*M) time complexity. For lists that might grow, this causes unnecessary main thread blocking during renders.
 **Action:** Replace the `Array.find` operation by pre-calculating the derived data into a hash map (`Map` object) using `useMemo` at the top level of the component. This reduces the complexity to O(N+M) and avoids repeated work during re-renders, while maintaining readability.
+## 2024-11-01 - Replacing Array.find() inside map() with Map lookup (LearningModule)
+**Learning:** In `LearningModule.tsx`, mapping over `filteredCourses` and performing a `.find()` on `userProgress` via a synchronous `localStorage` read inside the loop was causing O(N*M) complexity. For lists that grow over time, this structure incurs unnecessary processing blocking the render phase.
+**Action:** Always fetch state or persistent store info outside the main mapping loop. Use `Map` object to perform pre-calculations (`userProgress`), which turns O(N*M) performance bottlenecks into a linear O(N+M) time complexity via O(1) hash lookups during rendering.
