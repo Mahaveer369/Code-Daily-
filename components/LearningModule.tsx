@@ -244,6 +244,15 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 1: Pathways & Tracks Browser
   if (!selectedCourse) {
+    // ⚡ Bolt: Fetch user and progress once before loop to avoid repeated O(N) ops
+    const currentUser = db.getCurrentUser();
+    const progressMap = new Map();
+    if (currentUser) {
+      db.getUserProgress(currentUser.id).forEach(p => {
+        progressMap.set(p.courseId, p);
+      });
+    }
+
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
@@ -287,8 +296,8 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+            // ⚡ Bolt: Replaced O(N) array find with O(1) map lookup
+            const progress = progressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
@@ -351,6 +360,8 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
   // VIEW 2: Modules Roadmap for Selected Course
   if (!activeModule) {
     const currentUser = db.getCurrentUser();
+    // ⚡ Bolt: Fetch all progress, then map it (or directly find since it's just one course)
+    // Kept as find since it's only executed once per render of this view, not in a loop.
     const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
     const completedSet = new Set(progress?.completedModuleIds || []);
 
