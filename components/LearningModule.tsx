@@ -437,8 +437,9 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
           <button
             onClick={() => setActiveModule(null)}
             className="text-xs font-semibold text-slate-400 hover:text-white transition-colors flex items-center gap-1 shrink-0"
+            aria-label={`Back to ${selectedCourse.title}`}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             <span className="hidden sm:inline">{selectedCourse.title}</span>
@@ -461,8 +462,9 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
             title={isBookmarked ? "Remove Bookmark" : "Bookmark this Lesson"}
+            aria-label={isBookmarked ? "Remove Bookmark" : "Bookmark this Lesson"}
           >
-            <svg className="w-4 h-4" fill={isBookmarked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill={isBookmarked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
             <span className="hidden sm:inline">{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
