@@ -144,7 +144,8 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
 
     if (!profile) {
       profile = {
-        id: 'local_' + Math.random().toString(36).substring(2, 9),
+        // Security: Use crypto.randomUUID() for secure unique value generation instead of Math.random()
+        id: 'local_' + crypto.randomUUID(),
         name: targetName,
         email: targetEmail,
         role: targetEmail.includes('admin') ? 'admin' : 'user',
