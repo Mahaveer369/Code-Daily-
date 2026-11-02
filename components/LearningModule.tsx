@@ -136,6 +136,17 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
   const [bookmarkNote, setBookmarkNote] = useState('');
   const [isBookmarked, setIsBookmarked] = useState(false);
 
+  // ⚡ Bolt: Replaced O(N*M) nested find inside the loop with an O(N) pre-calculated Map lookup for course progress.
+  // We compute the map directly in the render body because reading from the external db store
+  // inside useMemo with an empty dependency array causes stale closures and breaks reactivity.
+  // Expected Impact: Improves rendering performance when navigating the Learning tracks.
+  const currentUser = db.getCurrentUser();
+  const progressList = currentUser ? db.getUserProgress(currentUser.id) : [];
+  const courseProgressMap = new Map<string, any>();
+  progressList.forEach(p => {
+    courseProgressMap.set(p.courseId, p);
+  });
+
   // Sync initialCourseId / initialModuleId from deep links or command palette
   useEffect(() => {
     if (initialCourseId) {
@@ -287,9 +298,8 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
-            const completedCount = progress?.completedModuleIds.length || 0;
+            const progress = courseProgressMap.get(course.id);
+            const completedCount = progress?.completedModuleIds?.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
             return (
@@ -350,8 +360,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 2: Modules Roadmap for Selected Course
   if (!activeModule) {
-    const currentUser = db.getCurrentUser();
-    const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
+    const progress = selectedCourse ? courseProgressMap.get(selectedCourse.id) : null;
     const completedSet = new Set(progress?.completedModuleIds || []);
 
     return (
