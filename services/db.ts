@@ -172,7 +172,7 @@ export const db = {
           courseId,
           courseTitle: course?.title || 'Unknown Course',
           issueDate: new Date().toLocaleDateString(),
-          verificationCode: Math.random().toString(36).substring(7).toUpperCase()
+          verificationCode: crypto.randomUUID().split('-')[0].toUpperCase()
         };
         certs.push(newCert);
         localStorage.setItem(K_CERTS + userId, JSON.stringify(certs));
