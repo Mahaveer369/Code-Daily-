@@ -126,6 +126,19 @@ interface Props {
 type DeckTab = 'code' | 'quiz' | 'interview' | 'resources';
 
 const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialModuleId }) => {
+
+  // ⚡ Bolt: Pre-calculate course progress into an O(1) Map at the top level
+  // to avoid calling `db.getUserProgress` and `Array.find()` inside map loops.
+  // Expected Impact: Reduces time complexity from O(N*M) to O(N+M) during rendering.
+  // Not using useMemo here because `localStorage` reads via db are non-reactive.
+  const currentUser = db.getCurrentUser();
+  const progressMap = new Map();
+  if (currentUser) {
+    db.getUserProgress(currentUser.id).forEach(p => {
+      progressMap.set(p.courseId, p);
+    });
+  }
+
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeModule, setActiveModule] = useState<CourseModule | null>(null);
@@ -287,8 +300,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+            const progress = progressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
@@ -350,8 +362,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 2: Modules Roadmap for Selected Course
   if (!activeModule) {
-    const currentUser = db.getCurrentUser();
-    const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
+    const progress = progressMap.get(selectedCourse.id);
     const completedSet = new Set(progress?.completedModuleIds || []);
 
     return (
