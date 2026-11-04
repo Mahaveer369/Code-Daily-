@@ -136,6 +136,14 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
   const [bookmarkNote, setBookmarkNote] = useState('');
   const [isBookmarked, setIsBookmarked] = useState(false);
 
+  // Retrieve user progress once at the top level and compute O(1) lookup map
+  const currentUser = db.getCurrentUser();
+  const userProgressArray = currentUser ? db.getUserProgress(currentUser.id) : [];
+  const courseProgressMap = new Map();
+  for (const p of userProgressArray) {
+    courseProgressMap.set(p.courseId, p);
+  }
+
   // Sync initialCourseId / initialModuleId from deep links or command palette
   useEffect(() => {
     if (initialCourseId) {
@@ -287,8 +295,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
+            const progress = courseProgressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
 
@@ -350,8 +357,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
 
   // VIEW 2: Modules Roadmap for Selected Course
   if (!activeModule) {
-    const currentUser = db.getCurrentUser();
-    const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
+    const progress = courseProgressMap.get(selectedCourse.id);
     const completedSet = new Set(progress?.completedModuleIds || []);
 
     return (
