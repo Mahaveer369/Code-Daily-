@@ -168,11 +168,11 @@ export const db = {
       if (!certs.find(c => c.courseId === courseId)) {
         const course = COURSES.find(c => c.id === courseId);
         const newCert: Certificate = {
-          id: Date.now().toString(),
+          id: crypto.randomUUID(),
           courseId,
           courseTitle: course?.title || 'Unknown Course',
           issueDate: new Date().toLocaleDateString(),
-          verificationCode: Math.random().toString(36).substring(7).toUpperCase()
+          verificationCode: crypto.randomUUID().split('-')[0].toUpperCase()
         };
         certs.push(newCert);
         localStorage.setItem(K_CERTS + userId, JSON.stringify(certs));
