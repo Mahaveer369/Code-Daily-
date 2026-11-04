@@ -425,10 +425,11 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {authMode === 'signup' && (
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+              <label htmlFor="displayName" className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                 Full Name
               </label>
               <input
+                id="displayName"
                 type="text"
                 required
                 value={displayName}
@@ -440,10 +441,11 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
           )}
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="email" className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
               Email Address
             </label>
             <input
+              id="email"
               type="email"
               required
               value={email}
@@ -455,7 +457,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              <label htmlFor="password" className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                 Password
               </label>
               {authMode === 'signin' && (
@@ -474,6 +476,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
               )}
             </div>
             <input
+              id="password"
               type="password"
               required
               value={password}
@@ -585,10 +588,11 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  <label htmlFor="resetEmail" className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                     Email Address
                   </label>
                   <input
+                    id="resetEmail"
                     type="email"
                     required
                     value={resetEmail}
