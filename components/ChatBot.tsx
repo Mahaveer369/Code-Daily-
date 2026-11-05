@@ -83,31 +83,36 @@ const ChatBot: React.FC = () => {
 
   return (
     <>
-      {/* Floating Action Button */}
+      {/* Floating Action Button (Positioned bottom-left to prevent any collision with right-side chapter/editor controls) */}
       <button
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         aria-label={isOpen ? "Close chat" : "Open chat"}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-          isOpen ? 'bg-red-500 rotate-90' : 'bg-primary hover:bg-blue-600'
+        className={`fixed bottom-4 left-4 z-40 h-11 px-3.5 rounded-full shadow-lg border transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+          isOpen
+            ? 'bg-red-600 border-red-400 text-white'
+            : 'bg-[#0f172a]/95 hover:bg-slate-800 border-slate-700 text-emerald-400'
         }`}
       >
         {isOpen ? (
-          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-          </svg>
+          <>
+            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            <span className="text-xs font-bold text-slate-200 hidden sm:inline">Study Assistant</span>
+          </>
         )}
       </button>
 
       {/* Chat Interface Panel */}
-      <div className={`fixed bottom-24 right-6 z-40 w-full max-w-md bg-card border border-gray-700 rounded-2xl shadow-2xl transition-all duration-300 origin-bottom-right flex flex-col ${
+      <div className={`fixed bottom-20 left-4 z-40 w-[calc(100vw-2rem)] max-w-md bg-card border border-gray-700 rounded-2xl shadow-2xl transition-all duration-300 origin-bottom-left flex flex-col ${
         isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-10 pointer-events-none'
       }`}
-      style={{ height: '600px', maxHeight: '80vh' }}
+      style={{ height: '560px', maxHeight: '78vh' }}
       >
         {/* Header */}
         <div className="p-4 border-b border-gray-700 bg-gray-800/50 rounded-t-2xl flex items-center gap-3">

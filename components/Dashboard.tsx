@@ -1,191 +1,349 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { UserProfile, CourseProgress, Certificate, Bookmark } from '../types';
-import { COURSES } from './LearningModule';
+import { COURSES, TOTAL_MODULES_COUNT } from './LearningModule';
+import { PRACTICE_PROBLEMS } from '../services/practiceProblems';
+import { calculateLevelFromXp } from '../services/codeRunner';
+import { HERO_ACADEMY_VISUAL_URI, getTrackVisualDataUri } from '../services/curriculum/visualAssets';
 import { db } from '../services/db';
 
 interface DashboardProps {
-   progress: UserProfile;
-   userName?: string;
-   onCourseClick?: (courseId: string) => void;
+  progress: UserProfile;
+  userName?: string;
+  onCourseClick?: (courseId: string, moduleId?: string) => void;
+  onOpenAllTutorials?: () => void;
+  onOpenPractice?: () => void;
+  onOpenVisualizer?: () => void;
+  onOpenCheatSheets?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ progress, userName, onCourseClick }) => {
-   const [userProgress, setUserProgress] = useState<CourseProgress[]>([]);
-   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-   const [certificates, setCertificates] = useState<Certificate[]>([]);
+const Dashboard: React.FC<DashboardProps> = ({
+  progress,
+  userName,
+  onCourseClick,
+  onOpenAllTutorials,
+  onOpenPractice,
+  onOpenVisualizer,
+  onOpenCheatSheets,
+}) => {
+  const [userProgress, setUserProgress] = useState<CourseProgress[]>([]);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
 
-   useEffect(() => {
-      setUserProgress(db.getUserProgress(progress.id));
-      setBookmarks(db.getBookmarks(progress.id));
-      setCertificates(db.getCertificates(progress.id));
-   }, [progress.id]);
+  useEffect(() => {
+    setUserProgress(db.getUserProgress(progress.id));
+    setBookmarks(db.getBookmarks(progress.id));
+    setCertificates(db.getCertificates(progress.id));
+  }, [progress.id, progress.xp]);
 
-   // ⚡ Bolt: Replaced expensive O(N) .find() inside map loop with O(1) hash map lookup
-   // Expected Impact: Reduces time complexity of rendering courses from O(N*M) to O(N+M)
-   // by pre-calculating course progress percentages into a lookup map using useMemo.
-   const courseProgressMap = useMemo(() => {
-      const map = new Map<string, number>();
-      userProgress.forEach(prog => {
-         const percent = Math.round((prog.completedModuleIds.length / prog.totalModules) * 100);
-         map.set(prog.courseId, percent);
-      });
-      return map;
-   }, [userProgress]);
+  const courseProgressMap = useMemo(() => {
+    const map = new Map<string, number>();
+    userProgress.forEach((prog) => {
+      const course = COURSES.find((c) => c.id === prog.courseId);
+      const total = course?.modules.length || prog.totalModules || 25;
+      const percent = Math.min(100, Math.round((prog.completedModuleIds.length / total) * 100));
+      map.set(prog.courseId, percent);
+    });
+    return map;
+  }, [userProgress]);
 
-   return (
-      <div className="space-y-6 sm:space-y-8 animate-fadeIn pb-12">
-         {/* Hero Section */}
-         <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-700 to-indigo-800 p-5 sm:p-8 shadow-2xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-12 translate-x-12 pointer-events-none"></div>
-            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-               <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">Welcome back, {userName}!</h1>
-                  <p className="text-blue-100/80 text-xs sm:text-sm max-w-lg">You've maintained a {progress.streak} day streak. Keep pushing your limits.</p>
+  const totalCompletedModules = useMemo(
+    () => userProgress.reduce((sum, p) => sum + p.completedModuleIds.length, 0),
+    [userProgress]
+  );
 
-                  <div className="flex flex-wrap gap-2.5 sm:gap-3 mt-5">
-                     <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 rounded-full border border-white/10 backdrop-blur-sm text-xs sm:text-sm">
-                        <span className="text-lg sm:text-xl">🔥</span> <span className="font-mono font-bold">{progress.streak} Day Streak</span>
-                     </div>
-                     <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 rounded-full border border-white/10 backdrop-blur-sm text-xs sm:text-sm">
-                        <span className="text-lg sm:text-xl">⚡</span> <span className="font-mono font-bold">{progress.xp} XP</span>
-                     </div>
-                  </div>
-               </div>
+  const solvedCount = progress.solvedProblemIds?.length || 0;
+  const levelStats = calculateLevelFromXp(progress.xp || 0);
+  const potd = PRACTICE_PROBLEMS.find((p) => p.isProblemOfTheDay) || PRACTICE_PROBLEMS[0];
 
-               <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md w-full md:w-auto min-w-[200px]">
-                  <div className="text-[11px] text-blue-200 uppercase tracking-wider mb-2">Next Milestone</div>
-                  <div className="text-xl sm:text-2xl font-bold text-white mb-1">Level {progress.level + 1}</div>
-                  <div className="w-full h-2 bg-black/20 rounded-full overflow-hidden">
-                     <div className="h-full bg-blue-400" style={{ width: `${(progress.xp % 1000) / 10}%` }}></div>
-                  </div>
-                  <div className="text-right text-[11px] text-blue-300 mt-1">{1000 - (progress.xp % 1000)} XP to go</div>
-               </div>
-            </div>
-         </div>
-
-         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-            {/* Left Col: Course Progress */}
-            <div className="lg:col-span-2 space-y-6">
-               <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                  Current Courses
-               </h2>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {COURSES.map(course => {
-                     const percent = courseProgressMap.get(course.id) || 0;
-                     return (
-                        <div key={course.id} className="bg-card border border-gray-800 p-5 rounded-2xl hover:border-gray-700 transition-all group">
-                           <div className="flex justify-between items-start mb-4">
-                              <div className="p-3 rounded-xl bg-gray-800 text-white group-hover:scale-110 transition-transform">
-                                 {/* Simple Icon placeholder */}
-                                 <span className="text-xl">
-                                    {course.icon === 'python' ? '🐍' : course.icon === 'database' ? '🗄️' : '💻'}
-                                 </span>
-                              </div>
-                              <div className="text-right">
-                                 <div className="text-2xl font-bold text-white">{percent}%</div>
-                                 <div className="text-xs text-gray-500">Completed</div>
-                              </div>
-                           </div>
-                           <h3 className="font-bold text-white mb-1">{course.title}</h3>
-                           <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mb-3">
-                              <div
-                                 className={`h-full rounded-full transition-all duration-1000 ${percent === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
-                                 style={{ width: `${percent}%` }}
-                              ></div>
-                           </div>
-                           <button
-                              onClick={() => onCourseClick?.(course.id)}
-                              className="w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium text-gray-300 transition-colors">
-                              {percent === 0 ? 'Start Course' : percent === 100 ? 'Review' : 'Continue Learning'}
-                           </button>
-                        </div>
-                     )
-                  })}
-               </div>
-
-               {/* Bookmarks Section */}
-               {bookmarks.length > 0 && (
-                  <div className="mt-8">
-                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                        Saved Notes
-                     </h2>
-                     <div className="grid gap-3">
-                        {bookmarks.map(b => (
-                           <div key={b.id} className="bg-[#161b22] border border-gray-800 p-4 rounded-xl flex justify-between items-center group">
-                              <div>
-                                 <div className="text-sm font-bold text-blue-400 mb-1">{b.moduleTitle}</div>
-                                 <p className="text-gray-400 text-sm italic">"{b.note}"</p>
-                              </div>
-                              <div className="text-xs text-gray-600 font-mono">
-                                 {new Date(b.timestamp).toLocaleDateString()}
-                              </div>
-                           </div>
-                        ))}
-                     </div>
-                  </div>
-               )}
+  return (
+    <div className="space-y-8 pb-12">
+      {/* Hero Banner with Architectural Visual & KPI Strip */}
+      <div className="rounded-2xl bg-[#121a2b] border border-slate-800 p-5 sm:p-8 shadow-xl space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
+            <div className="space-y-2.5">
+              <div className="text-xs font-semibold text-emerald-400">
+                Code It Out Engineering Academy · {COURSES.length} Tracks · {TOTAL_MODULES_COUNT} Deep Interactive Modules
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                Welcome back, {userName || progress.name}
+              </h1>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                Master full-stack web engineering, systems programming, relational storage engines, distributed architectures, and AI transformers across <strong>{TOTAL_MODULES_COUNT} in-depth chapters</strong> (25 chapters per subject) with visual diagrams, live sandboxes, and automated coding verification.
+              </p>
             </div>
 
-            {/* Right Col: Achievements & Certs */}
-            <div className="space-y-6">
-
-               {/* Badges */}
-               <div className="bg-card border border-gray-800 rounded-2xl p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Badges & Achievements</h3>
-                  <div className="grid grid-cols-4 gap-2">
-                     {progress.badges.map(badge => (
-                        <div key={badge.id} className="flex flex-col items-center group relative cursor-help">
-                           <div className="w-12 h-12 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-2xl shadow-lg group-hover:bg-gray-700 transition-colors">
-                              {badge.icon}
-                           </div>
-                           {/* Tooltip */}
-                           <div className="absolute bottom-full mb-2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
-                              {badge.name}
-                           </div>
-                        </div>
-                     ))}
-                     {/* Placeholders */}
-                     {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="w-12 h-12 rounded-full bg-gray-800/30 border border-gray-800/50 flex items-center justify-center text-gray-700 text-xl grayscale opacity-50">
-                           🏆
-                        </div>
-                     ))}
-                  </div>
-               </div>
-
-               {/* Certificates */}
-               <div className="bg-card border border-gray-800 rounded-2xl p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Certifications</h3>
-                  {certificates.length === 0 ? (
-                     <div className="text-center py-6 text-gray-500 text-sm">
-                        Complete a course to earn your first certificate.
-                     </div>
-                  ) : (
-                     <div className="space-y-3">
-                        {certificates.map(cert => (
-                           <div key={cert.id} className="p-3 bg-gradient-to-r from-gray-900 to-gray-800 border border-gray-700 rounded-xl flex items-center justify-between">
-                              <div>
-                                 <div className="text-white font-bold text-sm">{cert.courseTitle}</div>
-                                 <div className="text-xs text-gray-500 font-mono">Issued: {cert.issueDate}</div>
-                              </div>
-                              <button className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors" title="Download PDF">
-                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                              </button>
-                           </div>
-                        ))}
-                     </div>
-                  )}
-               </div>
-
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => onCourseClick?.('c-html', 'html-1')}
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
+              >
+                Start HTML5 Track (25 Chapters) ❯
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenAllTutorials?.()}
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
+              >
+                Explore All {TOTAL_MODULES_COUNT} Modules
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenPractice?.()}
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors"
+              >
+                Coding Judge ({PRACTICE_PROBLEMS.length} Problems)
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenVisualizer?.()}
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+              >
+                Algorithm Visualizers
+              </button>
             </div>
-         </div>
+          </div>
+
+          {/* Right Column: High-Resolution Technical Blueprint Illustration */}
+          <div className="lg:col-span-5 rounded-xl overflow-hidden border border-slate-800 bg-[#070d19] flex flex-col justify-between">
+            <img
+              src={HERO_ACADEMY_VISUAL_URI}
+              alt="Code It Out Distributed Systems, Data Structures, and Neural Architecture Blueprint"
+              referrerPolicy="no-referrer"
+              className="w-full h-48 sm:h-56 lg:h-full object-cover"
+            />
+          </div>
+        </div>
+
+        {/* Full-Width Student Progress & Scale Telemetry Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800">
+          <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5">
+            <div className="text-xs text-slate-400">Scholar Rank &amp; XP</div>
+            <div className="text-base sm:text-lg font-bold text-white font-mono tabular-nums mt-0.5">
+              Level {levelStats.level} · {progress.xp} XP
+            </div>
+          </div>
+          <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5">
+            <div className="text-xs text-slate-400">Curriculum Completed</div>
+            <div className="text-base sm:text-lg font-bold text-emerald-400 font-mono tabular-nums mt-0.5">
+              {totalCompletedModules} / {TOTAL_MODULES_COUNT} Modules
+            </div>
+          </div>
+          <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5">
+            <div className="text-xs text-slate-400">Judge Problems Solved</div>
+            <div className="text-base sm:text-lg font-bold text-blue-400 font-mono tabular-nums mt-0.5">
+              {solvedCount} / {PRACTICE_PROBLEMS.length} Solved
+            </div>
+          </div>
+          <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5">
+            <div className="text-xs text-slate-400">Active Study Streak</div>
+            <div className="text-base sm:text-lg font-bold text-amber-400 font-mono tabular-nums mt-0.5">
+              {progress.streak} Days
+            </div>
+          </div>
+        </div>
       </div>
-   );
+
+      {/* Problem of the Day + Quick Reference Spotlight */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="lg:col-span-7 bg-[#121a2b] border border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-amber-400 font-mono">
+              ★ Daily Featured Challenge · {potd.category} · {potd.difficulty}
+            </div>
+            <h2 className="text-lg font-bold text-white">{potd.title}</h2>
+            <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+              {potd.description.replace(/[`*]/g, '')}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-800">
+            <span className="text-xs text-slate-400 font-mono">
+              Target: {potd.expectedTimeComplexity} Time · {potd.expectedSpaceComplexity} Space · {potd.companies.slice(0, 3).join(', ')}
+            </span>
+            <button
+              type="button"
+              onClick={() => onOpenPractice?.()}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shrink-0"
+            >
+              Solve in Practice Judge →
+            </button>
+          </div>
+        </div>
+
+        <div className="lg:col-span-5 bg-[#121a2b] border border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-emerald-400">
+              Engineering Reference &amp; Career Pathways
+            </div>
+            <h2 className="text-lg font-bold text-white">
+              Syntax Cheat Sheets &amp; Guided Roadmaps
+            </h2>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Instant lookup tables for Big-O Complexity, Python 3 Idioms, SQL Window Functions, Flexbox/Grid, and Full-Stack / Systems Career Roadmaps.
+            </p>
+          </div>
+          <div className="pt-4 mt-4 border-t border-slate-800 flex justify-end">
+            <button
+              type="button"
+              onClick={() => onOpenCheatSheets?.()}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors"
+            >
+              Open Reference Sheets →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* All 15 Subject Tracks (25+ Modules Each = 377 Interactive Modules) */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              All {COURSES.length} Engineering Subject Tracks ({TOTAL_MODULES_COUNT} Interactive Modules)
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Every subject contains 25 deep chapters with 3-panel architecture diagrams, time/space complexity examples, and popup code labs
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenAllTutorials?.()}
+            className="min-h-[44px] px-3 text-xs font-bold text-emerald-400 hover:text-emerald-300 font-mono"
+          >
+            View Full {TOTAL_MODULES_COUNT}-Module Directory →
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5">
+          {COURSES.map((course) => {
+            const percent = courseProgressMap.get(course.id) || 0;
+            const visualUri = getTrackVisualDataUri(course.id);
+
+            return (
+              <div
+                key={course.id}
+                className="bg-[#121a2b] border border-slate-800 hover:border-emerald-500/40 rounded-2xl overflow-hidden flex flex-col justify-between transition-all"
+              >
+                <div>
+                  {/* Custom SVG Architecture Illustration Banner */}
+                  <div className="border-b border-slate-800 bg-[#080e1c]">
+                    <img
+                      src={visualUri}
+                      alt={`${course.title} Architecture Diagram`}
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                      className="w-full h-32 object-cover"
+                    />
+                  </div>
+
+                  <div className="p-5 pb-2">
+                    <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                      <span className="font-bold text-emerald-400">{course.shortTag || course.category}</span>
+                      <span className="tabular-nums text-slate-300 font-semibold">
+                        {course.modules.length} Modules · {percent}%
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-white text-base mb-3">{course.title}</h3>
+
+                    {/* Direct 1-click links to sample chapters right on the Dashboard card */}
+                    <div className="space-y-1.5 mb-3">
+                      {course.modules.slice(0, 4).map((m, idx) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => onCourseClick?.(course.id, m.id)}
+                          className="w-full min-h-[40px] text-left px-2.5 py-1.5 rounded-lg bg-[#0b101b] hover:bg-slate-800 border border-slate-800/80 text-xs text-slate-300 hover:text-white transition-colors flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate">
+                            <span className="font-mono text-emerald-400 mr-1.5">{idx + 1}.</span>
+                            {m.title}
+                          </span>
+                          <span className="text-[11px] font-mono text-emerald-400 shrink-0">Lab »</span>
+                        </button>
+                      ))}
+                      {course.modules.length > 4 && (
+                        <button
+                          type="button"
+                          onClick={() => onCourseClick?.(course.id, course.modules[24]?.id || course.modules[0]?.id)}
+                          className="w-full text-left px-2.5 py-1 text-[11px] font-mono text-slate-400 hover:text-emerald-400 transition-colors"
+                        >
+                          + {course.modules.length - 4} more deep modules (up to Ch {course.modules.length}) →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-5 pb-5 pt-2">
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-3">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 bg-emerald-500"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onCourseClick?.(course.id, course.modules[0]?.id)}
+                    className="w-full min-h-[44px] py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-colors"
+                  >
+                    Open {course.shortTag} ({course.modules.length} Modules) ❯
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Saved Notes & Certificates */}
+      {(bookmarks.length > 0 || certificates.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-[#121a2b] border border-slate-800 rounded-2xl p-6 space-y-4">
+            <h3 className="text-base font-bold text-white">Saved Study Notes ({bookmarks.length})</h3>
+            {bookmarks.length === 0 ? (
+              <p className="text-xs text-slate-400">Bookmark any lesson to keep your personal revision notes here.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {bookmarks.map((b) => (
+                  <div key={b.id} className="bg-[#0b101b] border border-slate-800 p-3.5 rounded-xl flex justify-between items-start gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-emerald-400">{b.moduleTitle}</div>
+                      <p className="text-xs text-slate-300 mt-1">{b.note}</p>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-500 shrink-0">
+                      {new Date(b.timestamp).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-[#121a2b] border border-slate-800 rounded-2xl p-6 space-y-4">
+            <h3 className="text-base font-bold text-white">Earned Certificates ({certificates.length})</h3>
+            {certificates.length === 0 ? (
+              <p className="text-xs text-slate-400">Complete all 25 chapters in any subject track to unlock your verified certificate.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {certificates.map((cert) => (
+                  <div key={cert.id} className="bg-[#0b101b] border border-slate-800 p-3.5 rounded-xl flex justify-between items-center">
+                    <div>
+                      <div className="text-xs font-bold text-white">{cert.courseTitle}</div>
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        Issued: {cert.issueDate} · ID: {cert.verificationCode}
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-400">Verified</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default Dashboard;

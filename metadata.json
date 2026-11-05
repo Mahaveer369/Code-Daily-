@@ -1,5 +1,8 @@
 {
   "name": "CS Daily Prep AI",
-  "description": "A daily AI-powered study companion for Computer Science fundamentals, DBMS, System Design, and DSA interview preparation.",
-  "requestFramePermissions": []
+  "description": "End-to-end interactive Computer Science, Web Development, DSA, SQL, and System Design learning platform with live code sandboxes, algorithm visualizers, and coding practice judge.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

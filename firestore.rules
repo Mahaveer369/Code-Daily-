@@ -41,7 +41,7 @@ service cloud.firestore {
         allow write: if isOwner(userId)
           && request.resource.data.keys().hasOnly(['courseId', 'completedModuleIds', 'quizScores', 'lastAccessedModuleId', 'updatedAt'])
           && request.resource.data.completedModuleIds is list
-          && request.resource.data.completedModuleIds.size() <= 50;
+          && request.resource.data.completedModuleIds.size() <= 500;
       }
       
       match /bookmarks/{bookmarkId} {

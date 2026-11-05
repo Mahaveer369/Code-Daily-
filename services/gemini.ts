@@ -1,17 +1,9 @@
-import { GoogleGenAI } from '@google/genai';
 import { DailyPlan, Category, LessonContent } from '../types';
 import { db } from './db';
 
-// Perplexity API Configuration
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
 const getApiKey = () => import.meta.env.VITE_PERPLEXITY_API_KEY || '';
 
-const getGeminiKey = () =>
-  (typeof process !== 'undefined' ? (process.env?.GEMINI_API_KEY || process.env?.API_KEY) : '') ||
-  import.meta.env.VITE_GEMINI_API_KEY ||
-  '';
-
-// --- Perplexity Chat Completion ---
 export const callPerplexity = async (systemPrompt: string, userPrompt: string): Promise<string> => {
   const response = await fetch(PERPLEXITY_API_URL, {
     method: 'POST',
@@ -42,81 +34,64 @@ const getCuratedDailyPlan = (today: string): DailyPlan => ({
   topics: [
     {
       category: Category.CS_CORE,
-      title: "Process vs Thread",
+      title: "Process vs Thread & Context Switching",
       difficulty: "Medium",
-      question: "What is the difference between a process and a thread?",
-      shortAnswer: "A process is an independent program with its own memory space. A thread is a lightweight execution unit within a process that shares memory with other sibling threads.",
-      detailedExplanation: "### Deep Dive: Process vs Thread\n\n1. **Memory Isolation**: Processes have independent virtual address spaces. A crash in one process does not affect another.\n2. **Context Switching Overhead**: Switching between threads of the same process is faster because memory mappings and cache remain valid.\n3. **Communication**: Threads communicate via shared memory; processes require Inter-Process Communication (IPC, like pipes, sockets, shared memory).",
+      question: "What is the exact architectural difference between an OS Process and a Thread?",
+      shortAnswer: "A process is an isolated executing program with its own virtual address space (Page Table / CR3). A thread is a lightweight execution unit within a process that shares the heap and global memory with sibling threads.",
+      detailedExplanation: "### Deep Dive: Process vs Thread\n\n1. **Memory Isolation**: Processes have independent virtual address spaces. A crash in one process does not corrupt another.\n2. **Context Switching Overhead**: Switching between threads of the same process is faster because TLB address mappings remain valid.\n3. **Communication**: Threads communicate via shared memory (requiring mutexes/atomics); processes require Inter-Process Communication (IPC, pipes, shared memory).",
       tags: ["OS", "Concurrency", "Memory"]
     },
     {
       category: Category.DBMS,
-      title: "ACID Properties",
+      title: "ACID Properties & Write-Ahead Logging (WAL)",
       difficulty: "Medium",
-      question: "Explain ACID properties in transactional databases",
-      shortAnswer: "ACID stands for Atomicity (all-or-nothing), Consistency (valid state transitions), Isolation (independent concurrent transactions), and Durability (committed changes persist).",
-      detailedExplanation: "### Deep Dive: ACID\n\n- **Atomicity**: Guaranteed by undo/redo transaction logs (WAL).\n- **Consistency**: Enforced through schema rules, foreign keys, and integrity constraints.\n- **Isolation**: Prevent concurrency anomalies using isolation levels (Read Committed, Repeatable Read, Serializable).\n- **Durability**: Achieved via battery-backed caches and flushing Write-Ahead Logs to disk before acknowledging commits.",
+      question: "How do production relational databases guarantee ACID properties during a sudden power loss?",
+      shortAnswer: "Atomicity and Durability are enforced via Write-Ahead Logging (WAL / ARIES) flushed to disk via fsync before commit, while Isolation uses MVCC snapshots and locks.",
+      detailedExplanation: "### Deep Dive: ACID\n\n- **Atomicity**: Guaranteed by undo transaction logs during crash recovery.\n- **Consistency**: Enforced through schema rules, foreign keys, and integrity constraints.\n- **Isolation**: Prevents concurrency anomalies using isolation levels (Read Committed, Repeatable Read, Serializable).\n- **Durability**: Achieved by appending redo records to the Write-Ahead Log on disk before acknowledging commits.",
       tags: ["Transactions", "SQL", "ACID"]
     },
     {
       category: Category.SYSTEM_DESIGN,
-      title: "Load Balancing & High Availability",
+      title: "Layer 4 vs Layer 7 Load Balancing",
       difficulty: "Medium",
-      question: "How does a Layer 4 vs Layer 7 load balancer differ?",
-      shortAnswer: "Layer 4 load balancers operate at the transport layer (TCP/UDP) routing based on IP and port without reading HTTP payloads, while Layer 7 balancers inspect HTTP headers, cookies, and URLs for smart routing.",
-      detailedExplanation: "### Layer 4 vs Layer 7 Load Balancing\n\n- **L4 (Transport)**: Faster, handles raw TCP/UDP streams (e.g., HAProxy TCP mode, AWS NLB). Cannot terminate SSL with path inspection.\n- **L7 (Application)**: Slower but feature-rich (e.g., NGINX, AWS ALB). Supports path-based routing (`/api` vs `/static`), SSL termination, and rate limiting.",
+      question: "How does a Layer 4 Transport load balancer differ from a Layer 7 Application load balancer?",
+      shortAnswer: "Layer 4 load balancers operate at the transport layer (TCP/UDP) routing based on IP and port without reading HTTP payloads, while Layer 7 balancers inspect HTTP headers, cookies, and URL paths for smart routing.",
+      detailedExplanation: "### Layer 4 vs Layer 7 Load Balancing\n\n- **L4 (Transport)**: Ultra-fast packet forwarding (e.g., AWS NLB, IPVS). Cannot route based on URL path.\n- **L7 (Application)**: Terminates TLS and inspects HTTP payloads (e.g., NGINX, Envoy, AWS ALB). Supports path routing (`/api` vs `/static`), JWT auth, and rate limiting.",
       tags: ["Scalability", "Networking", "System Design"]
     },
     {
       category: Category.DSA,
-      title: "Binary Search & Invariants",
+      title: "Binary Search & Monotonic Predicate Invariants",
       difficulty: "Easy",
-      question: "When should you use binary search and what is the loop invariant?",
-      shortAnswer: "Binary search applies to any monotonic (sorted) search space, dividing the interval in half each step for O(log n) time complexity.",
-      detailedExplanation: "### Binary Search Invariants\n\nAlways maintain a search interval `[low, high]`:\n```python\nlow, high = 0, len(arr) - 1\nwhile low <= high:\n    mid = low + (high - low) // 2\n    if arr[mid] == target:\n        return mid\n    elif arr[mid] < target:\n        low = mid + 1\n    else:\n        high = mid - 1\nreturn -1\n```\nAvoid integer overflow using `low + (high - low) // 2`.",
+      question: "When can Binary Search be applied beyond simple sorted arrays, and what is the loop invariant?",
+      shortAnswer: "Binary search applies to any monotonic boolean condition F(x) that transitions once from False to True, halving the search space in O(log N) time.",
+      detailedExplanation: "### Binary Search Invariants\n\nAlways maintain a closed search interval `[low, high]`:\n```python\nlow, high = 0, len(arr) - 1\nwhile low <= high:\n    mid = low + (high - low) // 2\n    if arr[mid] == target:\n        return mid\n    elif arr[mid] < target:\n        low = mid + 1\n    else:\n        high = mid - 1\nreturn -1\n```",
       tags: ["Algorithms", "Searching", "Binary Search"]
     }
   ]
 });
 
-// --- Daily Plan ---
 export const generateDailyPlan = async (): Promise<DailyPlan> => {
   const today = new Date().toDateString();
 
-  const systemPrompt = `You are a senior Computer Science interviewer. 
-Generate a structured JSON response containing exactly one "Question of the Day" for each category:
+  const systemPrompt = `You are a senior Computer Science educator.
+Generate a structured JSON response containing one "Question of the Day" for each category:
 1. CS Fundamentals
 2. DBMS
 3. System Design
-4. DSA
-
-Return ONLY valid JSON with this exact structure:
-{
-  "date": "${today}",
-  "topics": [
-    {
-      "category": "CS Fundamentals",
-      "title": "...",
-      "difficulty": "Easy|Medium|Hard",
-      "question": "...",
-      "shortAnswer": "2-3 sentences",
-      "detailedExplanation": "markdown explanation",
-      "tags": ["tag1", "tag2"]
-    }
-  ]
-}`;
+4. DSA`;
 
   try {
     let content = '';
-    const geminiKey = getGeminiKey();
+    const serverRes = await fetch('/api/gemini/daily-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ today, systemPrompt }),
+    });
 
-    if (geminiKey) {
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-      const resp = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `${systemPrompt}\n\nGenerate today's study plan for: ${today}`,
-      });
-      content = resp.text || '';
+    if (serverRes.ok) {
+      const data = await serverRes.json();
+      content = data.text || '';
     } else if (getApiKey()) {
       content = await callPerplexity(systemPrompt, `Generate today's study plan for: ${today}`);
     }
@@ -128,36 +103,37 @@ Return ONLY valid JSON with this exact structure:
       }
     }
   } catch (error) {
-    console.warn("AI generation failed for daily plan, loading curated plan:", error);
+    console.warn("Using curated daily plan fallback:", error);
   }
 
-  // Gracefully return curated plan so UI is always responsive
   return getCuratedDailyPlan(today);
 };
 
 const CS_DICTIONARY: Record<string, string> = {
   deadlock: "A deadlock occurs when a set of concurrent processes are permanently blocked because each process holds a resource and waits for another resource held by another.",
-  thread: "A thread is the smallest unit of execution within an OS process, sharing the parent process's memory space, open files, and descriptors.",
-  process: "A process is an executing program instance with its own dedicated memory address space, registers, stack, and heap.",
+  thread: "A thread is the smallest unit of execution within an OS process, sharing the parent process's virtual memory space, heap, and file descriptors.",
+  process: "A process is an executing program instance with its own dedicated virtual memory address space, page table, stack, and heap.",
   acid: "ACID defines the four pillars of database transactions: Atomicity, Consistency, Isolation, and Durability, ensuring reliability under concurrent operations.",
-  mutex: "A mutex (mutual exclusion) is a synchronization primitive that limits access to a shared resource to a single thread at a time.",
-  semaphore: "A semaphore is a signaling variable used to control access to finite resources among multiple processes via wait (P) and signal (V) operations.",
-  btree: "A B-Tree is a self-balancing search tree optimized for systems that read and write large blocks of memory, widely used in relational database indexes.",
-  sharding: "Sharding is horizontal partitioning of a database across multiple machines to scale write throughput and storage capacity.",
-  caching: "Caching stores copies of data in high-speed volatile memory to serve future requests faster, utilizing policies like LRU or LFU."
+  mutex: "A mutex (mutual exclusion) is a synchronization primitive that limits access to a shared critical section to a single thread at a time.",
+  semaphore: "A semaphore is a signaling counter used to control access to finite resources among multiple threads via wait (P) and signal (V) operations.",
+  btree: "A B+ Tree is a self-balancing N-ary search tree optimized for block storage systems, keeping all records in sorted leaf pages linked sequentially.",
+  sharding: "Sharding horizontally partitions data across multiple independent database nodes by a shard key to scale write throughput and storage.",
+  caching: "Caching stores hot data in fast volatile memory (RAM / Redis) to serve reads in sub-millisecond latency using eviction policies like LRU or LFU.",
+  closure: "A closure is a function bundled with lexical references to variables in its outer enclosing scope, preserving them even after the outer function completes.",
+  flexbox: "CSS Flexbox is a one-dimensional layout model for distributing space and aligning items along a single row or column axis."
 };
 
 export const getFastDefinition = async (term: string): Promise<string> => {
   const cleanTerm = term.trim().toLowerCase();
   try {
-    const geminiKey = getGeminiKey();
-    if (geminiKey) {
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-      const resp = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `You are a CS expert. Define "${term}" concisely in maximum 30 words in a Computer Science context.`,
-      });
-      if (resp.text) return resp.text.trim();
+    const serverRes = await fetch('/api/gemini/define', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ term }),
+    });
+    if (serverRes.ok) {
+      const data = await serverRes.json();
+      if (data.text) return data.text.trim();
     } else if (getApiKey()) {
       const content = await callPerplexity(
         "You are a CS expert. Define terms concisely in max 30 words.",
@@ -166,24 +142,21 @@ export const getFastDefinition = async (term: string): Promise<string> => {
       if (content) return content.trim();
     }
   } catch (error) {
-    console.warn("Fast def failed", error);
+    // Fallback to dictionary
   }
 
   for (const [key, val] of Object.entries(CS_DICTIONARY)) {
     if (cleanTerm.includes(key)) return val;
   }
-  return `${term}: A fundamental concept in Computer Science. Explore our interactive modules for deeper architecture and code walkthroughs.`;
+  return `${term}: A core concept in Computer Science and Software Engineering. Open the interactive track module or visualizer for step-by-step code walkthroughs.`;
 };
 
-// --- Course Content Generation ---
 const pendingRequests = new Map<string, Promise<LessonContent>>();
 
 export const generateLessonContent = async (moduleId: string, topicTitle: string, category: string): Promise<LessonContent> => {
-  // 1. Check cache first
   const cached = db.getLesson(moduleId);
   if (cached) return cached;
 
-  // 2. Dedupe in-flight requests
   if (pendingRequests.has(moduleId)) {
     return pendingRequests.get(moduleId)!;
   }
@@ -191,42 +164,21 @@ export const generateLessonContent = async (moduleId: string, topicTitle: string
   const fetchPromise = (async () => {
     try {
       const systemPrompt = `You are a Senior Engineer creating course content. Return ONLY valid JSON.`;
-      const userPrompt = `Create a learning module for: "${topicTitle}" in "${category}".
-Return JSON with this structure:
-{
-  "title": "${topicTitle}",
-  "estimatedReadingTime": "10 min",
-  "contentMarkdown": "## Introduction\\n...",
-  "quizzes": [
-    {"id": "q1", "question": "...", "options": ["A", "B", "C", "D"], "correctAnswerIndex": 0, "explanation": "..."}
-  ],
-  "codingChallenge": {
-    "title": "...",
-    "description": "...",
-    "language": "python",
-    "starterCode": "# Your code here",
-    "solutionCode": "...",
-    "hint": "..."
-  },
-  "interviewQuestions": [
-    {"question": "...", "companyTag": "Google", "answer": "..."}
-  ],
-  "resources": [
-    {"title": "...", "type": "Documentation", "authorOrSource": "Official Docs"}
-  ]
-}`;
+      const userPrompt = `Create a learning module for: "${topicTitle}" in "${category}".`;
 
       let content = '';
-      const geminiKey = getGeminiKey();
-      if (geminiKey) {
-        const ai = new GoogleGenAI({ apiKey: geminiKey });
-        const resp = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `${systemPrompt}\n\n${userPrompt}`,
-        });
-        content = resp.text || '';
-      } else {
+      if (getApiKey()) {
         content = await callPerplexity(systemPrompt, userPrompt);
+      } else {
+        const serverRes = await fetch('/api/gemini/lesson', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ systemPrompt, userPrompt }),
+        });
+        if (serverRes.ok) {
+          const data = await serverRes.json();
+          content = data.text || '';
+        }
       }
 
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -239,8 +191,6 @@ Return JSON with this structure:
 
       throw new Error("Could not parse lesson content");
     } catch (error) {
-      console.error(error);
-      // Return fallback content matching test expectations
       return {
         id: moduleId,
         title: topicTitle,
@@ -260,42 +210,38 @@ Return JSON with this structure:
 
 const getOfflineTutorResponse = (query: string): string => {
   const q = query.toLowerCase();
-  if (q.includes('process') && q.includes('thread')) {
-    return `### Process vs Thread\n\n- **Process**: Independent execution environment with its own address space, memory pages, and system handles. Heavyweight context switch.\n- **Thread**: Lightweight unit of execution sharing the process's address space and heap. Much faster context switching.\n\nKey interview takeaway: Threads share memory (risk of race conditions); processes are memory-isolated (require IPC).`;
+  if (q.includes('process') || q.includes('thread')) {
+    return `### Process vs Thread\n\n- **Process**: Independent execution environment with its own virtual address space, page table, and system handles.\n- **Thread**: Lightweight unit of execution sharing the process's heap and global state.\n\n**Key Takeaway**: Threads share memory (fast communication, requires synchronization); processes are isolated (safe, requires IPC).`;
   }
-  if (q.includes('acid') || q.includes('transaction')) {
-    return `### ACID Properties in DBMS\n\n- **A - Atomicity**: An entire transaction completes or none of it takes effect.\n- **C - Consistency**: Database state moves from one valid state to another, obeying all constraints.\n- **I - Isolation**: Concurrent execution of transactions yields the same state as serial execution.\n- **D - Durability**: Once committed, changes survive system crashes (via Write-Ahead Logging).`;
+  if (q.includes('acid') || q.includes('transaction') || q.includes('sql')) {
+    return `### SQL & ACID Transactions\n\n- **Atomicity**: Entire transaction succeeds or rolls back via Undo logs.\n- **Consistency**: All integrity constraints and foreign keys hold.\n- **Isolation**: Concurrent transactions execute without interference (MVCC / 2PL).\n- **Durability**: Committed changes survive crashes via Write-Ahead Logging (WAL).`;
   }
-  if (q.includes('binary search') || q.includes('search')) {
-    return `### Binary Search\n\nBinary search works on any sorted array or monotonic condition in **O(log n)** time.\n\n\`\`\`python\ndef binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    while left <= right:\n        mid = left + (right - left) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    return -1\n\`\`\``;
+  if (q.includes('binary search') || q.includes('two sum') || q.includes('dsa')) {
+    return `### Algorithm Strategy\n\n- For **sorted arrays**, use **Binary Search** (\`O(log N)\` time, \`O(1)\` space) or **Two Pointers**.\n- For **unsorted pair lookups**, use a **Hash Map** (\`O(N)\` time, \`O(N)\` space).\n\n\`\`\`python\ndef binary_search(arr, target):\n    low, high = 0, len(arr) - 1\n    while low <= high:\n        mid = (low + high) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n    return -1\n\`\`\``;
   }
-  return `### CS Study Buddy Answer\n\nGreat question regarding **${query.slice(0, 50)}**!\n\nIn computer systems and algorithms, it's best to analyze this through:\n1. **Core Mechanism**: How the underlying OS, runtime, or hardware handles this.\n2. **Complexity**: Time and space trade-offs (e.g. O(1) vs O(log n) vs O(n)).\n3. **Practical Implementation**: Use the **Code Playground** tab to write a quick experiment and test edge cases!\n\nFeel free to ask a follow-up or explore our interactive courses in **Operating Systems**, **DBMS**, and **Algorithms**!`;
+  return `### Interactive Study Tutor\n\nHere is how to master **${query.slice(0, 50)}**:\n\n1. **Intuition First**: Break the problem into input, state transition, and output invariant.\n2. **Time & Space Complexity**: Always compare the brute-force \`O(N^2)\` baseline against an optimal \`O(N)\` or \`O(log N)\` approach.\n3. **Hands-On Practice**: Try running a quick test in the **Live Code Sandbox** or step through the **Dry-Run Visualizer**!`;
 };
 
-// --- Chat Service ---
 export class ChatService {
   async sendMessageStream(message: string): Promise<AsyncIterable<string>> {
     let content = "";
     try {
-      const geminiKey = getGeminiKey();
-      if (geminiKey) {
-        const ai = new GoogleGenAI({ apiKey: geminiKey });
-        const resp = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: message,
-          config: {
-            systemInstruction: "You are an expert CS tutor for Code IIT Out. Be concise, accurate, and code-focused with markdown formatting."
-          }
-        });
-        content = resp.text || "";
+      const serverRes = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      if (serverRes.ok) {
+        const data = await serverRes.json();
+        content = data.text || "";
       } else if (getApiKey()) {
         content = await callPerplexity(
-          "You are an expert CS tutor for Code IIT Out. Be concise, accurate, and code-focused.",
+          "You are an expert CS tutor. Be concise, accurate, and code-focused.",
           message
         );
       }
     } catch (err) {
-      console.warn("AI streaming error, falling back to tutor response:", err);
+      // Fallback to offline tutor response
     }
 
     if (!content) {

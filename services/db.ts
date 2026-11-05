@@ -106,7 +106,19 @@ export const db = {
   },
 
   saveUserProgress: (userId: string, progress: CourseProgress[]) => {
-    localStorage.setItem(K_PROGRESS + userId, JSON.stringify(progress));
+    try {
+      localStorage.setItem(K_PROGRESS + userId, JSON.stringify(progress));
+    } catch (quotaErr) {
+      // High-scale resilience: evict non-essential cached lesson strings if localStorage is full
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith(K_LESSONS))
+        .forEach((k) => localStorage.removeItem(k));
+      try {
+        localStorage.setItem(K_PROGRESS + userId, JSON.stringify(progress));
+      } catch {
+        // Ignore if storage restricted in private mode
+      }
+    }
 
     // Asynchronously synchronize progress to Firestore if authenticated
     if (auth.currentUser && auth.currentUser.uid === userId && firestoreDb) {
@@ -116,7 +128,7 @@ export const db = {
             const courseRef = doc(firestoreDb, 'users', userId, 'progress', p.courseId);
             await setDoc(courseRef, {
               courseId: p.courseId,
-              completedModuleIds: p.completedModuleIds.slice(0, 50),
+              completedModuleIds: p.completedModuleIds.slice(0, 500),
               quizScores: p.quizScores || {},
               lastAccessedModuleId: p.lastAccessedModuleId || '',
               updatedAt: new Date().toISOString()
@@ -137,10 +149,12 @@ export const db = {
       courseProg = {
         courseId,
         completedModuleIds: [],
-        totalModules: COURSES.find(c => c.id === courseId)?.modules.length || 10,
+        totalModules: COURSES.find(c => c.id === courseId)?.modules.length || 25,
         quizScores: {}
       };
       allProgress.push(courseProg);
+    } else {
+      courseProg.totalModules = COURSES.find(c => c.id === courseId)?.modules.length || courseProg.totalModules || 25;
     }
 
     if (!courseProg.completedModuleIds.includes(moduleId)) {
@@ -153,6 +167,28 @@ export const db = {
     
     // Check for badge/cert updates
     db.checkAchievements(userId, courseId, courseProg);
+  },
+
+  markProblemSolved: (userId: string, problemId: string, points: number): UserProfile | null => {
+    const current = db.getCurrentUser();
+    if (!current || current.id !== userId) return current;
+    const solved = current.solvedProblemIds || [];
+    if (!solved.includes(problemId)) {
+      solved.push(problemId);
+      current.solvedProblemIds = solved;
+      current.xp = (current.xp || 0) + points;
+      current.level = Math.floor(current.xp / 500) + 1;
+      if (solved.length === 1 && !current.badges.some(b => b.id === 'first-solve')) {
+        current.badges.push({
+          id: 'first-solve',
+          name: 'Problem Solver',
+          icon: '⚡',
+          dateEarned: new Date().toLocaleDateString()
+        });
+      }
+      db.saveUser(current);
+    }
+    return current;
   },
 
   checkAchievements: (userId: string, courseId: string, progress: CourseProgress) => {

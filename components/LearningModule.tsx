@@ -1,121 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Course, CourseModule, LessonContent, Category } from '../types';
-import MarkdownRenderer from './MarkdownRenderer';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Course, CourseModule, LessonContent, Category, MustSolveExercise } from '../types';
+import MarkdownRenderer, { formatLatexMath } from './MarkdownRenderer';
 import { db } from '../services/db';
 import { getCurriculumLesson } from '../services/curriculum';
+import { EXPANDED_COURSES } from '../services/curriculum/deepCatalog25';
+import { getTrackVisualDataUri } from '../services/curriculum/visualAssets';
 import CodePlayground from './CodePlayground';
 import QuizComponent from './QuizComponent';
 
-export const COURSES: Course[] = [
-  {
-    id: 'c6',
-    title: 'System Design & Distributed Systems',
-    category: Category.SYSTEM_DESIGN,
-    icon: 'cloud',
-    modules: [
-      { id: 'sd-1', title: 'Scalability Basics', description: 'Vertical vs Horizontal Scaling, QPS Math & SPOF', difficulty: 'Beginner', isLocked: false },
-      { id: 'sd-2', title: 'Load Balancing & Consistent Hashing', description: 'L4 vs L7, Maglev, Virtual Nodes & Direct Server Return', difficulty: 'Intermediate', isLocked: false },
-      { id: 'sd-3', title: 'Caching Strategies', description: 'Cache-Aside, Write-Through, LRU, Bloom Filters & Stampedes', difficulty: 'Intermediate', isLocked: false },
-      { id: 'sd-4', title: 'Database Sharding', description: 'Partition Keys, Scatter-Gather & 2-Phase Commit', difficulty: 'Advanced', isLocked: false },
-      { id: 'sd-5', title: 'Message Queues & Events', description: 'Kafka vs RabbitMQ, Partition Ordering & Idempotency', difficulty: 'Advanced', isLocked: false },
-      { id: 'sd-6', title: 'Microservices & Service Mesh', description: 'Envoy, Circuit Breakers, Bulkheads & Distributed Tracing', difficulty: 'Advanced', isLocked: false },
-      { id: 'sd-7', title: 'CAP & PACELC Theorem', description: 'Linearizability, Quorums (W+R>N) & Spanner TrueTime', difficulty: 'Expert', isLocked: false },
-      { id: 'sd-8', title: 'Design URL Shortener', description: 'Base62 Encoding, Token Range Allocation & 301 vs 302', difficulty: 'Expert', isLocked: false },
-      { id: 'sd-9', title: 'Design Twitter News Feed', description: 'Fan-out on Write vs Pull, Redis Lists & Celebrity Hybrid', difficulty: 'Expert', isLocked: false },
-    ]
-  },
-  {
-    id: 'c5',
-    title: 'Distributed DBMS Internals',
-    category: Category.DBMS,
-    icon: 'database',
-    modules: [
-      { id: 'db-1', title: 'Storage Engines & Row vs Columnar', description: 'Buffer Pool, Volcano Iterator & OLTP vs OLAP', difficulty: 'Beginner', isLocked: false },
-      { id: 'db-2', title: 'Schema Modeling at Scale', description: 'Cardinality, Junction Tables & Why FAANG Bans DB FKs', difficulty: 'Beginner', isLocked: false },
-      { id: 'db-3', title: 'Relational Model & Keys', description: 'Surrogate Keys, UUIDv7 vs v4 & Clustering Indexes', difficulty: 'Beginner', isLocked: false },
-      { id: 'db-4', title: 'Normalization & De-normalization', description: '1NF to BCNF & Intentional De-normalization for High Read', difficulty: 'Intermediate', isLocked: false },
-      { id: 'db-5', title: 'SQL Deep Dive & Query Plans', description: 'Window Functions, CTEs, Index Scans & Covering Indexes', difficulty: 'Intermediate', isLocked: false },
-      { id: 'db-6', title: 'Transactions & ACID (WAL)', description: 'Write-Ahead Logging, ARIES, fsync & Checkpointing', difficulty: 'Advanced', isLocked: false },
-      { id: 'db-7', title: 'Indexing: B+ Trees vs LSM Trees', description: 'Page Splits, SSTables, Write Amplification & RocksDB', difficulty: 'Advanced', isLocked: false },
-      { id: 'db-8', title: 'Concurrency: MVCC & 2PL', description: 'Snapshot Isolation, xmin/xmax, Write Skew & Phantoms', difficulty: 'Expert', isLocked: false },
-    ]
-  },
-  {
-    id: 'c3',
-    title: 'Operating Systems & Concurrency',
-    category: Category.OOPS,
-    icon: 'os',
-    modules: [
-      { id: 'os-1', title: 'Process vs Thread Internals', description: 'Virtual Memory Map, PCB, TLB Flush & Context Switch Cost', difficulty: 'Beginner', isLocked: false },
-      { id: 'os-2', title: 'CPU Scheduling & Linux CFS', description: 'vruntime Red-Black Tree, Quantum & K8s CFS Throttling', difficulty: 'Intermediate', isLocked: false },
-      { id: 'os-3', title: 'Virtual Memory & Paging', description: '4-Level Page Tables, CR3, Page Faults & THP Caveats', difficulty: 'Intermediate', isLocked: false },
-      { id: 'os-4', title: 'Deadlocks & Coffman Conditions', description: 'Strict Lock Ordering, Cycle Detection & Priority Inversion', difficulty: 'Advanced', isLocked: false },
-      { id: 'os-5', title: 'File Systems & Inodes', description: 'Hard Links vs Soft Links, Inode Tables & Ext4 Block Maps', difficulty: 'Intermediate', isLocked: false },
-      { id: 'os-6', title: 'Synchronization: Mutex & Futex', description: 'Atomic CAS, Futex Fast-Path, Semaphores & ABA Problem', difficulty: 'Advanced', isLocked: false },
-    ]
-  },
-  {
-    id: 'c4',
-    title: 'Advanced Data Structures & Algorithms',
-    category: Category.DSA,
-    icon: 'code',
-    modules: [
-      { id: 'ds-1', title: 'Complexity & Amortization', description: 'Amortized Array Doubling Proof & Master Theorem', difficulty: 'Beginner', isLocked: false },
-      { id: 'ds-2', title: 'Arrays & Two Pointers', description: 'Cache Line Locality, Opposite Pointers & Sliding Window', difficulty: 'Beginner', isLocked: false },
-      { id: 'ds-3', title: 'Linked Lists & Floyd Cycle', description: 'Pointer Reversals, Sentinel Nodes & Tortoise and Hare', difficulty: 'Intermediate', isLocked: false },
-      { id: 'ds-4', title: 'Monotonic Stacks & Deques', description: 'Next Greater Element, Daily Temperatures & Sliding Max', difficulty: 'Intermediate', isLocked: false },
-      { id: 'ds-5', title: 'Trees & Balanced BSTs', description: 'In-Order Invariants, Lowest Common Ancestor & Serialization', difficulty: 'Intermediate', isLocked: false },
-      { id: 'ds-6', title: 'Graphs: BFS, DFS & Dijkstra', description: 'Topological Sort (Kahn), Shortest Path & Contraction', difficulty: 'Advanced', isLocked: false },
-      { id: 'ds-7', title: 'Dynamic Programming Patterns', description: '0/1 Knapsack, Space Optimization & Longest Subsequence', difficulty: 'Expert', isLocked: false },
-    ]
-  },
-  {
-    id: 'c7',
-    title: 'Computer Networks & Distributed Protocols',
-    category: Category.NETWORKS,
-    icon: 'network',
-    modules: [
-      { id: 'cn-1', title: 'OSI 7-Layer Encapsulation', description: 'PDUs, Ethernet Frames, IP Packets & ARP Protocol', difficulty: 'Beginner', isLocked: false },
-      { id: 'cn-2', title: 'TCP 3-Way Handshake & BBR', description: 'SYN Cookies, Flow Control, TIME_WAIT & Congestion', difficulty: 'Beginner', isLocked: false },
-      { id: 'cn-3', title: 'HTTP/1.1 vs HTTP/2 vs HTTP/3', description: 'Binary Framing, Head-of-Line Blocking, QUIC & UDP', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cn-4', title: 'DNS Resolution & BGP Anycast', description: 'Recursive Hierarchy, Authoritative Servers & TTL Caching', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cn-5', title: 'WebSockets & Socket Scaling', description: 'HTTP Upgrade Handshake, Linux Epoll & ulimit Tuning', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cn-6', title: 'Network Security: TLS, CORS & XSS', description: 'TLS 1.3 0-RTT, HttpOnly Cookies, CSRF & Origin Rules', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-7', title: 'Proxies & Load Balancing', description: 'Nginx, HAProxy, Envoy xDS & Direct Server Return', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-8', title: 'CDNs & Edge Caching', description: 'Cache-Control Directives, Origin Shields & Tag Purges', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-9', title: 'REST vs GraphQL vs gRPC', description: 'Protocol Buffers, HTTP/2 Multiplexing & IDL Schemas', difficulty: 'Advanced', isLocked: false },
-      { id: 'cn-10', title: 'Network Diagnostics & tcpdump', description: 'tcpdump, ss, mtr, traceroute TTL & CLOSE_WAIT Bugs', difficulty: 'Expert', isLocked: false },
-      { id: 'cn-11', title: 'FAANG Interview: Design a CDN', description: 'Global Edge PoPs, Consistent Hashing & Cache Shields', difficulty: 'Expert', isLocked: false },
-      { id: 'cn-12', title: 'FAANG Interview: Video Streaming', description: 'Netflix/YouTube Chunking, HLS/DASH & Adaptive Bitrate', difficulty: 'Expert', isLocked: false },
-    ]
-  },
-  {
-    id: 'c1',
-    title: 'Python Internals & Execution Model',
-    category: Category.PYTHON,
-    icon: 'python',
-    modules: [
-      { id: 'py-1', title: 'CPython & Global Interpreter Lock', description: 'ceval.c Opcode Loop, PyObject & CPU-bound Concurrency', difficulty: 'Beginner', isLocked: false },
-      { id: 'py-2', title: 'Memory & Generational GC', description: 'Reference Counting, Cycles, Small Int Cache & Copy-On-Write', difficulty: 'Beginner', isLocked: false },
-      { id: 'py-3', title: 'Bytecode & PVM Stack Machine', description: 'dis Module, Opcode Evaluation & Comprehension Speedups', difficulty: 'Beginner', isLocked: false },
-      { id: 'py-4', title: 'Scoping (LEGB) & Closures', description: 'Lexical Cells, nonlocal, Decorators & Default Mutability', difficulty: 'Intermediate', isLocked: false },
-      { id: 'py-5', title: 'Lists vs Tuples: Memory Layout', description: 'Dynamic Array Resizing Formula, __slots__ & Immutability', difficulty: 'Intermediate', isLocked: false },
-    ]
-  },
-  {
-    id: 'c2',
-    title: 'Computer Science Fundamentals',
-    category: Category.CS_CORE,
-    icon: 'cpu',
-    modules: [
-      { id: 'cs-1', title: 'Number Systems & Floating Point', description: "Two's Complement & IEEE 754 Float Precision Traps", difficulty: 'Beginner', isLocked: false },
-      { id: 'cs-2', title: 'Boolean Logic & Bitwise Tricks', description: 'Bitmasks, Power of Two, Brian Kernighan & Single Number', difficulty: 'Beginner', isLocked: false },
-      { id: 'cs-3', title: 'Hardware Architecture & Caching', description: 'L1/L2/L3 Latencies, 64B Cache Lines & False Sharing', difficulty: 'Intermediate', isLocked: false },
-      { id: 'cs-4', title: 'Compilers, Interpreters & JIT', description: 'Lexing, AST, SSA Intermediate Form & V8 JIT Profiling', difficulty: 'Advanced', isLocked: false },
-      { id: 'cs-5', title: 'Networking Basics & Epoll', description: 'I/O Multiplexing, C10K Problem & select vs epoll', difficulty: 'Intermediate', isLocked: false },
-    ]
-  }
-];
+export const COURSES: Course[] = EXPANDED_COURSES;
+
+export const TOTAL_MODULES_COUNT = COURSES.reduce((sum, c) => sum + c.modules.length, 0);
 
 interface Props {
   onComplete: (moduleId: string) => void;
@@ -127,57 +22,89 @@ type DeckTab = 'code' | 'quiz' | 'interview' | 'resources';
 
 const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialModuleId }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [topicSearch, setTopicSearch] = useState<string>('');
+  const [sidebarFilter, setSidebarFilter] = useState<string>('');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeModule, setActiveModule] = useState<CourseModule | null>(null);
   const [lessonContent, setLessonContent] = useState<LessonContent | null>(null);
   const [activeDeckTab, setActiveDeckTab] = useState<DeckTab>('code');
   const [mobileZone, setMobileZone] = useState<'theory' | 'deck'>('theory');
+  const [customTryCode, setCustomTryCode] = useState<{ code: string; language: string } | null>(null);
+  const [isSplitTryitOpen, setIsSplitTryitOpen] = useState<boolean>(false);
+  const [isModalFullscreen, setIsModalFullscreen] = useState<boolean>(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [isCodeLabOpen, setIsCodeLabOpen] = useState<boolean>(false);
+  const [isWideLab, setIsWideLab] = useState<boolean>(false);
+  const [labPulse, setLabPulse] = useState<boolean>(false);
+
+  // Interactive Fill-in-the-Blank & Must-Solve Exercises State
+  const [exerciseInput, setExerciseInput] = useState<string>('');
+  const [exerciseStatus, setExerciseStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  const [showExerciseAnswer, setShowExerciseAnswer] = useState<boolean>(false);
+  const [mustSolveInputs, setMustSolveInputs] = useState<Record<string, string>>({});
+  const [mustSolveStatuses, setMustSolveStatuses] = useState<Record<string, 'idle' | 'correct' | 'wrong'>>({});
+  const [mustSolveShowAns, setMustSolveShowAns] = useState<Record<string, boolean>>({});
+
+  // Bookmark Note Modal
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkNote, setBookmarkNote] = useState('');
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  // Sync initialCourseId / initialModuleId from deep links or command palette
+  // Sync deep link courseId / moduleId (supports legacy c8 -> c-html, c9 -> c-js, c10 -> c-react)
   useEffect(() => {
     if (initialCourseId) {
-      const foundCourse = COURSES.find(c => c.id === initialCourseId);
+      const legacyMap: Record<string, string> = {
+        c8: 'c-html',
+        c9: 'c-js',
+        c10: 'c-react',
+      };
+      const resolvedCourseId = legacyMap[initialCourseId] || initialCourseId;
+      const foundCourse = COURSES.find(c => c.id === resolvedCourseId);
       if (foundCourse) {
         setSelectedCourse(foundCourse);
         if (initialModuleId) {
           const foundMod = foundCourse.modules.find(m => m.id === initialModuleId);
-          if (foundMod) {
-            setActiveModule(foundMod);
-            setMobileZone('theory');
-          }
+          setActiveModule(foundMod || foundCourse.modules[0] || null);
+        } else {
+          setActiveModule(foundCourse.modules[0] || null);
         }
+        setMobileZone('theory');
       }
     }
   }, [initialCourseId, initialModuleId]);
 
-  // Sync lesson content synchronously from in-memory curriculum
+  // Load lesson content synchronously in O(1) & reset exercise state on chapter change
   useEffect(() => {
     if (!activeModule) {
       setLessonContent(null);
+      setCustomTryCode(null);
       return;
     }
 
-    // Resolve immediately with zero latency
+    setCustomTryCode(null);
+    setExerciseInput('');
+    setExerciseStatus('idle');
+    setShowExerciseAnswer(false);
+    setMustSolveInputs({});
+    setMustSolveStatuses({});
+    setMustSolveShowAns({});
+
     const content = getCurriculumLesson(activeModule.id) || db.getLesson(activeModule.id);
     if (content) {
       setLessonContent(content);
     } else {
-      // Fallback
       setLessonContent({
         id: activeModule.id,
         title: activeModule.title,
-        estimatedReadingTime: '15 mins',
-        contentMarkdown: `# ${activeModule.title}\n\n${activeModule.description}\n\n*Reviewing curriculum materials.*`,
+        estimatedReadingTime: '10 mins',
+        beginnerSummary: `${activeModule.title}: ${activeModule.description}`,
+        contentMarkdown: `# ${activeModule.title}\n\n${activeModule.description}\n\nClick **Run Code** in the right-hand sandbox to experiment with this concept live.`,
         quizzes: [],
         interviewQuestions: [],
         resources: []
       });
     }
 
-    // Check if bookmarked
     const user = db.getCurrentUser();
     if (user) {
       const bookmarks = db.getBookmarks(user.id);
@@ -191,7 +118,12 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
     if (currentIndex >= 0 && currentIndex < selectedCourse.modules.length - 1) {
       setActiveModule(selectedCourse.modules[currentIndex + 1]);
     } else {
-      setActiveModule(null);
+      const courseIdx = COURSES.findIndex(c => c.id === selectedCourse.id);
+      if (courseIdx >= 0 && courseIdx < COURSES.length - 1) {
+        const nextCourse = COURSES[courseIdx + 1];
+        setSelectedCourse(nextCourse);
+        setActiveModule(nextCourse.modules[0]);
+      }
     }
   };
 
@@ -200,6 +132,57 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
     const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
     if (currentIndex > 0) {
       setActiveModule(selectedCourse.modules[currentIndex - 1]);
+    }
+  };
+
+  const handleMarkCurrentComplete = () => {
+    if (!selectedCourse || !activeModule) return;
+    const user = db.getCurrentUser();
+    if (user) {
+      db.markModuleComplete(user.id, selectedCourse.id, activeModule.id, 100);
+      onComplete(activeModule.id);
+    }
+  };
+
+  const handleTryCodeInSandbox = (code: string, language: string) => {
+    setCustomTryCode({ code, language });
+    setIsModalFullscreen(false);
+    setIsSplitTryitOpen(true);
+    setActiveDeckTab('code');
+    setLabPulse(true);
+    window.setTimeout(() => setLabPulse(false), 1100);
+  };
+
+  const normalizeAnswerToken = (val: string) =>
+    val
+      .trim()
+      .replace(/^\$\s+/, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+
+  const handleVerifyMustSolve = (ex: MustSolveExercise) => {
+    const rawUser = mustSolveInputs[ex.id] || '';
+    const normUser = normalizeAnswerToken(rawUser);
+    if (!normUser) return;
+
+    const candidates = [ex.answer, ...(ex.acceptedAnswers || [])].map(normalizeAnswerToken);
+    if (candidates.includes(normUser)) {
+      setMustSolveStatuses(prev => ({ ...prev, [ex.id]: 'correct' }));
+      handleMarkCurrentComplete();
+    } else {
+      setMustSolveStatuses(prev => ({ ...prev, [ex.id]: 'wrong' }));
+    }
+  };
+
+  const handleCheckExercise = (e: React.FormEvent) => {
+    e.preventDefault();
+    const expected = lessonContent?.fillBlankExercise?.answer?.trim() || '';
+    if (!expected) return;
+    if (normalizeAnswerToken(exerciseInput) === normalizeAnswerToken(expected)) {
+      setExerciseStatus('correct');
+      handleMarkCurrentComplete();
+    } else {
+      setExerciseStatus('wrong');
     }
   };
 
@@ -228,7 +211,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         id: Date.now().toString(),
         moduleId: activeModule.id,
         moduleTitle: activeModule.title,
-        note: bookmarkNote || `Saved bookmark for ${activeModule.title}`,
+        note: bookmarkNote || `Saved note for ${activeModule.title}`,
         timestamp: Date.now()
       });
       setIsBookmarked(true);
@@ -237,394 +220,1147 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
     }
   };
 
-  // Filter courses by category tab
-  const filteredCourses = selectedCategory === 'all'
-    ? COURSES
-    : COURSES.filter(c => c.category === selectedCategory);
+  const filteredCourses = useMemo(() => {
+    return COURSES.filter(c => {
+      const matchesCat = selectedCategory === 'all' || c.category === selectedCategory;
+      if (!topicSearch.trim()) return matchesCat;
+      const q = topicSearch.toLowerCase();
+      const titleMatch = c.title.toLowerCase().includes(q) || (c.shortTag || '').toLowerCase().includes(q);
+      const modMatch = c.modules.some(
+        m => m.title.toLowerCase().includes(q) || m.description.toLowerCase().includes(q)
+      );
+      return matchesCat && (titleMatch || modMatch);
+    });
+  }, [selectedCategory, topicSearch]);
 
-  // VIEW 1: Pathways & Tracks Browser
-  if (!selectedCourse) {
+  // Group current course modules by sectionGroup for structured chapter sidebar headers
+  const groupedSidebarModules = useMemo(() => {
+    if (!selectedCourse) return [];
+    const q = sidebarFilter.trim().toLowerCase();
+    const groups: { groupName: string; items: { mod: CourseModule; index: number }[] }[] = [];
+
+    selectedCourse.modules.forEach((mod, idx) => {
+      if (q && !mod.title.toLowerCase().includes(q) && !mod.description.toLowerCase().includes(q)) {
+        return;
+      }
+      const groupName = mod.sectionGroup || 'Core Chapters';
+      let existing = groups.find(g => g.groupName === groupName);
+      if (!existing) {
+        existing = { groupName, items: [] };
+        groups.push(existing);
+      }
+      existing.items.push({ mod, index: idx });
+    });
+    return groups;
+  }, [selectedCourse, sidebarFilter]);
+
+  // ============================================================================
+  // VIEW 1: All 14 Subject Tracks & 350-Module Catalog Browser
+  // ============================================================================
+  if (!selectedCourse || !activeModule) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="text-xs font-semibold tracking-wider uppercase text-blue-400 mb-2">
-            Engineering Academy · FAANG SDE-2 Curriculum
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            Computer Science & Systems Mastery
-          </h1>
-          <p className="text-slate-400 mt-2 max-w-3xl text-sm leading-relaxed">
-            Zero synthetic filler. In-depth practical systems architecture, low-level OS internals, high-scale database mechanisms, and algorithmic trade-offs benchmarked for senior technical interviews.
-          </p>
-        </div>
-
-        {/* Interactive Segmented Filter Controls */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-900/80 rounded-xl border border-slate-800 mb-8 max-w-fit">
-          {[
-            { id: 'all', label: 'All Tracks' },
-            { id: Category.SYSTEM_DESIGN, label: 'System Design' },
-            { id: Category.DBMS, label: 'Distributed DBMS' },
-            { id: Category.OOPS, label: 'Operating Systems' },
-            { id: Category.DSA, label: 'Algorithms & DSA' },
-            { id: Category.NETWORKS, label: 'Networks & Protocols' },
-            { id: Category.PYTHON, label: 'Python Internals' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedCategory(tab.id)}
-              className={`px-3.5 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
-                selectedCategory === tab.id
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Course Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id) : null;
-            const completedCount = progress?.completedModuleIds.length || 0;
-            const pct = Math.round((completedCount / course.modules.length) * 100);
-
-            return (
-              <div
-                key={course.id}
-                onClick={() => setSelectedCourse(course)}
-                className="group bg-[#161f30]/80 hover:bg-[#1a253a] border border-slate-800 hover:border-blue-500/40 rounded-2xl p-6 cursor-pointer transition-all duration-200 flex flex-col justify-between hover:shadow-xl hover:-translate-y-0.5"
-              >
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
-                      <span className="text-xl">
-                        {course.icon === 'cloud' ? '☁️' :
-                         course.icon === 'database' ? '🗄️' :
-                         course.icon === 'os' ? '🖥️' :
-                         course.icon === 'code' ? '⚡' :
-                         course.icon === 'network' ? '🌐' :
-                         course.icon === 'python' ? '🐍' : '💻'}
-                      </span>
-                    </div>
-                    <span className="text-xs text-slate-400 font-mono">
-                      {course.modules.length} Modules
-                    </span>
-                  </div>
-
-                  <h3 className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors mb-2">
-                    {course.title}
-                  </h3>
-
-                  <div className="flex items-center gap-2 text-xs text-slate-400 mb-6">
-                    <span>SDE-2 Practical</span>
-                    <span aria-hidden="true">·</span>
-                    <span>Runnable Sandboxes</span>
-                    <span aria-hidden="true">·</span>
-                    <span>ASCII Maps</span>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center text-xs text-slate-400 mb-2 font-mono">
-                    <span>Progress</span>
-                    <span>{completedCount} / {course.modules.length} completed ({pct}%)</span>
-                  </div>
-                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-300"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
+      <div className="space-y-8 pb-12">
+        <div className="bg-[#121a2b] border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Complete Engineering Curriculum · {COURSES.length} Subject Tracks · {TOTAL_MODULES_COUNT} Interactive Modules
               </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // VIEW 2: Modules Roadmap for Selected Course
-  if (!activeModule) {
-    const currentUser = db.getCurrentUser();
-    const progress = currentUser ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id) : null;
-    const completedSet = new Set(progress?.completedModuleIds || []);
-
-    return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <button
-          onClick={() => setSelectedCourse(null)}
-          className="mb-6 flex items-center text-slate-400 hover:text-white transition-colors text-xs font-semibold uppercase tracking-wider gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to All Tracks
-        </button>
-
-        <div className="mb-8">
-          <div className="text-xs font-semibold uppercase text-blue-400 tracking-wider mb-2">
-            Track Roadmap · FAANG SDE-2
-          </div>
-          <h2 className="text-3xl font-bold text-white">{selectedCourse.title}</h2>
-          <p className="text-slate-400 text-sm mt-2 max-w-2xl">
-            Step-by-step master roadmap covering production architectural trade-offs, internal algorithms, and coding sandboxes.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {selectedCourse.modules.map((module, idx) => {
-            const isCompleted = completedSet.has(module.id);
-            return (
-              <div
-                key={module.id}
-                onClick={() => setActiveModule(module)}
-                className="bg-[#141b2a] border border-slate-800 hover:border-slate-600 p-5 rounded-xl transition-all cursor-pointer flex items-center justify-between group hover:bg-[#182133]"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 transition-colors ${
-                    isCompleted
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-slate-800 text-slate-400'
-                  }`}>
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h4 className="font-semibold text-white text-base group-hover:text-blue-300 transition-colors">
-                        {module.title}
-                      </h4>
-                      {isCompleted && (
-                        <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
-                          ✓ Completed
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">{module.description}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 shrink-0">
-                  <span className="text-xs text-slate-400 font-mono hidden sm:inline">
-                    {module.difficulty}
-                  </span>
-                  <svg className="w-5 h-5 text-slate-600 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // VIEW 3: Interactive Two-Zone Workspace (Left Stage + Right Concept Deck)
-  const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
-  const nextModule = selectedCourse.modules[currentIndex + 1];
-  const prevModule = selectedCourse.modules[currentIndex - 1];
-
-  return (
-    <div className="min-h-full flex flex-col bg-[#0b0f19]">
-      {/* Top Workspace Bar */}
-      <div className="border-b border-slate-800 bg-[#0f172a]/95 backdrop-blur-md px-4 py-3 sticky top-0 z-30 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={() => setActiveModule(null)}
-            className="text-xs font-semibold text-slate-400 hover:text-white transition-colors flex items-center gap-1 shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline">{selectedCourse.title}</span>
-          </button>
-          <span className="text-slate-600">/</span>
-          <h2 className="text-sm font-bold text-white truncate">
-            {activeModule.title}
-          </h2>
-          <span className="text-xs text-slate-400 hidden md:inline font-mono">
-            · {lessonContent?.estimatedReadingTime || '15 mins'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleBookmarkToggle}
-            className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-              isBookmarked
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-            title={isBookmarked ? "Remove Bookmark" : "Bookmark this Lesson"}
-          >
-            <svg className="w-4 h-4" fill={isBookmarked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-            <span className="hidden sm:inline">{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
-          </button>
-
-          {prevModule && (
-            <button
-              onClick={handlePreviousModule}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white rounded-lg transition-colors"
-            >
-              Prev
-            </button>
-          )}
-
-          {nextModule ? (
-            <button
-              onClick={handleNextModule}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white rounded-lg transition-colors flex items-center gap-1"
-            >
-              <span>Next</span>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                const user = db.getCurrentUser();
-                if (user && activeModule) {
-                  db.markModuleComplete(user.id, selectedCourse.id, activeModule.id, 100);
-                  onComplete(activeModule.id);
-                }
-                setActiveModule(null);
-              }}
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white rounded-lg transition-colors"
-            >
-              Finish Track 🎉
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile Surface Segmented Zone Switcher (< lg) */}
-      <div className="lg:hidden flex bg-[#0d1320] border-b border-slate-800 p-1.5 gap-1.5 sticky top-[49px] z-20">
-        <button
-          onClick={() => setMobileZone('theory')}
-          className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-            mobileZone === 'theory'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white bg-slate-900/60'
-          }`}
-        >
-          <span>📖 Concept & Trade-offs</span>
-        </button>
-        <button
-          onClick={() => setMobileZone('deck')}
-          className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-            mobileZone === 'deck'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white bg-slate-900/60'
-          }`}
-        >
-          <span>⚡ Lab & Sandbox</span>
-          {lessonContent?.quizzes?.length ? (
-            <span className="text-[10px] px-1.5 py-0.2 bg-blue-500/30 text-blue-200 rounded-full font-mono">
-              Quiz
-            </span>
-          ) : null}
-        </button>
-      </div>
-
-      {/* Main Two-Zone Two-Column Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
-        {/* Left Zone: Deep-Dive Technical Stage (60% width on desktop, full on mobile when active) */}
-        <div className={`lg:col-span-7 p-4 sm:p-6 lg:p-8 overflow-y-auto border-r border-slate-800/80 space-y-6 ${
-          mobileZone === 'theory' ? 'block' : 'hidden lg:block'
-        }`}>
-          {lessonContent && (
-            <div className="prose prose-invert max-w-none">
-              <MarkdownRenderer content={lessonContent.contentMarkdown} />
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">
+                25 Deep Chapters Per Subject with Visual Diagrams &amp; Popup Code Labs
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                Select any subject track below to start from Chapter 1 or jump directly into any of the {TOTAL_MODULES_COUNT} interactive modules.
+              </p>
             </div>
-          )}
 
-          {/* Quick jump to lab button on mobile */}
-          <div className="lg:hidden pt-4 pb-6 border-t border-slate-800/60">
-            <button
-              onClick={() => setMobileZone('deck')}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
-            >
-              <span>Switch to Code Playground & Quiz</span>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </button>
+            <div className="w-full lg:w-80">
+              <label htmlFor="tutorial-search" className="sr-only">
+                Search all {TOTAL_MODULES_COUNT} modules and topics
+              </label>
+              <input
+                id="tutorial-search"
+                type="text"
+                value={topicSearch}
+                onChange={(e) => setTopicSearch(e.target.value)}
+                placeholder={`Search all ${TOTAL_MODULES_COUNT} modules (e.g. Flexbox, Raft, MCP, B+Tree)...`}
+                className="w-full min-h-[44px] bg-[#0b101b] border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Right Zone: Interactive Concept Deck (40% width on desktop, full on mobile when active) */}
-        <div className={`lg:col-span-5 flex-col bg-[#0e1422] overflow-y-auto ${
-          mobileZone === 'deck' ? 'flex' : 'hidden lg:flex'
-        }`}>
-          {/* Deck Tab Selector */}
-          <div className="border-b border-slate-800 p-2 flex items-center gap-1 bg-slate-900/60 sticky top-0 z-20">
+          {/* 15-Subject Filter Bar */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
             {[
-              { id: 'code', label: 'Code Sandbox' },
-              { id: 'quiz', label: 'Scenario Quiz' },
-              { id: 'interview', label: 'FAANG Questions' },
-              { id: 'resources', label: 'Docs & Papers' },
+              { id: 'all', label: `All ${COURSES.length} Tracks (${TOTAL_MODULES_COUNT} Modules)` },
+              ...COURSES.map(c => ({ id: c.category, label: `${c.shortTag} (${c.modules.length})` }))
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveDeckTab(tab.id as DeckTab)}
-                className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap text-center ${
-                  activeDeckTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                type="button"
+                onClick={() => setSelectedCategory(tab.id)}
+                className={`min-h-[38px] px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+                  selectedCategory === tab.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#0b101b] text-slate-300 hover:text-white border border-slate-800'
                 }`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
+        </div>
 
-          {/* Deck Body */}
-          <div className="p-4 lg:p-6 flex-1 space-y-6">
-            {/* TAB 1: Code Sandbox */}
-            {activeDeckTab === 'code' && (
-              <div>
-                {lessonContent?.codingChallenge ? (
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-base font-bold text-white mb-1">
-                        {lessonContent.codingChallenge.title}
+        {/* Course Cards Grid showing custom SVG banner + ALL 25 modules inside each track */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredCourses.map(course => {
+            const currentUser = db.getCurrentUser();
+            const progress = currentUser
+              ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id)
+              : null;
+            const completedCount = progress?.completedModuleIds.length || 0;
+            const pct = Math.round((completedCount / course.modules.length) * 100);
+            const visualUri = getTrackVisualDataUri(course.id);
+
+            return (
+              <div
+                key={course.id}
+                className="bg-[#121a2b] border border-slate-800 hover:border-emerald-500/40 rounded-2xl overflow-hidden flex flex-col justify-between transition-all"
+              >
+                <div>
+                  <div className="border-b border-slate-800 bg-[#080e1c]">
+                    <img
+                      src={visualUri}
+                      alt={`${course.title} Visual Architecture`}
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                      className="w-full h-32 object-cover"
+                    />
+                  </div>
+
+                  <div className="p-5 pb-2">
+                    <div className="flex items-center justify-between text-xs text-emerald-400 font-mono mb-2">
+                      <span className="font-bold">{course.shortTag || course.category}</span>
+                      <span className="tabular-nums text-slate-300">
+                        {course.modules.length} Modules · {pct}% Done
+                      </span>
+                    </div>
+
+                    <h3 className="text-lg font-bold text-white mb-3">
+                      {course.title}
+                    </h3>
+
+                    {/* Scrollable Full 25-Chapter List inside each Track Card */}
+                    <div className="space-y-1.5 my-3 max-h-64 overflow-y-auto pr-1">
+                      {course.modules.map((mod, idx) => (
+                        <button
+                          key={mod.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCourse(course);
+                            setActiveModule(mod);
+                          }}
+                          className="w-full min-h-[38px] text-left px-3 py-2 rounded-lg bg-[#0b101b] hover:bg-slate-800/90 border border-slate-800/80 text-xs text-slate-200 hover:text-white transition-colors flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate">
+                            <span className="font-mono text-emerald-400 mr-1.5">{idx + 1}.</span>
+                            {mod.title}
+                          </span>
+                          <span className="text-emerald-400 shrink-0 font-mono text-[11px] font-semibold">
+                            Open »
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-5 pb-5 pt-3 border-t border-slate-800/80 space-y-2.5">
+                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-full transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCourse(course);
+                      setActiveModule(course.modules[0]);
+                    }}
+                    className="w-full min-h-[44px] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-colors"
+                  >
+                    Start {course.shortTag} Track ({course.modules.length} Modules) ❯
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // VIEW 2: 3-Column Interactive Tutorial + Visual Diagram + Exercise + Sandbox
+  // ============================================================================
+  const currentIndex = selectedCourse.modules.findIndex(m => m.id === activeModule.id);
+  const nextModule = selectedCourse.modules[currentIndex + 1];
+  const prevModule = selectedCourse.modules[currentIndex - 1];
+  const currentUser = db.getCurrentUser();
+  const courseProgress = currentUser
+    ? db.getUserProgress(currentUser.id).find(p => p.courseId === selectedCourse.id)
+    : null;
+  const completedSet = new Set(courseProgress?.completedModuleIds || []);
+  const isCurrentCompleted = completedSet.has(activeModule.id);
+
+  const sandboxInitialCode =
+    customTryCode?.code ||
+    lessonContent?.codingChallenge?.starterCode ||
+    `# Interactive Sandbox for ${activeModule.title}\nprint("Exploring ${activeModule.title}")`;
+  const sandboxLanguage =
+    customTryCode?.language ||
+    lessonContent?.codingChallenge?.language ||
+    'python';
+
+  return (
+    <div className="min-h-full flex flex-col bg-[#0b101b] rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+      {/* Top Tutorial Navigation Bar (Zero-Overlap Responsive Layout) */}
+      <div className="border-b border-slate-800 bg-[#121a2b] px-3 sm:px-5 py-2.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+        {/* Top Row on Mobile / Left Cluster on Desktop */}
+        <div className="flex items-center gap-2 min-w-0 w-full lg:w-auto lg:flex-1">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveModule(null);
+              setSelectedCourse(null);
+            }}
+            className="min-h-[38px] px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 hover:text-white transition-colors shrink-0 whitespace-nowrap"
+          >
+            ☰ All Tracks ({TOTAL_MODULES_COUNT})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            className="hidden lg:inline-flex items-center min-h-[38px] px-2.5 py-1.5 rounded-lg bg-[#0b101b] hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition-colors shrink-0 whitespace-nowrap"
+            title={isSidebarOpen ? 'Hide Syllabus Sidebar' : 'Show Syllabus Sidebar'}
+          >
+            {isSidebarOpen ? '◧ Hide Chapters' : '◧ Show Chapters'}
+          </button>
+
+          {/* Direct Track Switcher Dropdown */}
+          <label htmlFor="course-track-select" className="sr-only">
+            Switch Subject Track
+          </label>
+          <select
+            id="course-track-select"
+            value={selectedCourse.id}
+            onChange={(e) => {
+              const nextCourse = COURSES.find(c => c.id === e.target.value);
+              if (nextCourse) {
+                setSelectedCourse(nextCourse);
+                setActiveModule(nextCourse.modules[0]);
+              }
+            }}
+            className="min-h-[38px] flex-1 w-0 min-w-0 sm:w-auto sm:flex-none sm:max-w-[210px] truncate bg-[#0b101b] border border-slate-700 text-emerald-400 text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          >
+            {COURSES.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.shortTag} ({c.modules.length} Ch)
+              </option>
+            ))}
+          </select>
+
+          <span className="text-slate-600 hidden md:inline shrink-0">/</span>
+          <h2 className="text-xs sm:text-sm font-bold text-white truncate hidden md:block min-w-0 flex-1">
+            {currentIndex + 1}. {activeModule.title}
+          </h2>
+          <span className="text-xs text-slate-400 hidden 2xl:inline font-mono shrink-0">
+            ({currentIndex + 1} of {selectedCourse.modules.length} · {lessonContent?.estimatedReadingTime || '10 mins'})
+          </span>
+        </div>
+
+        {/* Action Controls: 4-Col Equal Grid on Mobile, Flex Cluster on Desktop */}
+        <div className="grid grid-cols-4 sm:flex items-center gap-1.5 sm:gap-2 w-full lg:w-auto shrink-0">
+          <button
+            type="button"
+            onClick={handlePreviousModule}
+            disabled={!prevModule}
+            className="min-h-[38px] px-2 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs font-bold text-white rounded-lg transition-colors text-center truncate"
+          >
+            ❮ Prev
+          </button>
+
+          <button
+            type="button"
+            onClick={handleBookmarkToggle}
+            className={`min-h-[38px] px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors text-center truncate ${
+              isBookmarked
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                : 'bg-slate-800 text-slate-300 hover:text-white'
+            }`}
+          >
+            {isBookmarked ? '★ Saved' : '☆ Note'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMarkCurrentComplete}
+            className={`min-h-[38px] px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-colors text-center truncate ${
+              isCurrentCompleted
+                ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
+                : 'bg-slate-800 hover:bg-slate-700 text-emerald-400'
+            }`}
+          >
+            {isCurrentCompleted ? '✓ Done' : 'Complete'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsModalFullscreen(false);
+              setIsSplitTryitOpen(true);
+            }}
+            className="hidden sm:inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/50 text-emerald-300 hover:text-white transition-all duration-200 whitespace-nowrap"
+            title="Pop up Interactive Code Editor Modal (with Fullscreen & Close options)"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>⚡ Code Editor</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsCodeLabOpen((prev) => !prev)}
+            className={`hidden xl:inline-flex items-center justify-center gap-1.5 min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200 whitespace-nowrap ${
+              isCodeLabOpen
+                ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/50'
+                : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+            }`}
+            title={isCodeLabOpen ? 'Collapse Side Drawer' : 'Dock Code Lab to Side'}
+          >
+            {isCodeLabOpen ? 'Hide Side ◨' : 'Side Lab ◨'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleNextModule}
+            className="min-h-[38px] px-2.5 sm:px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white rounded-lg transition-colors text-center truncate"
+          >
+            Next ❯
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile-First Chapter Picker & Zone Switcher (< lg) */}
+      <div className="lg:hidden bg-[#0d1320] border-b border-slate-800 px-3 py-2.5 space-y-2.5 w-full overflow-hidden">
+        <div className="flex items-center gap-2 w-full min-w-0">
+          <label htmlFor="mobile-chapter-select" className="text-[11px] font-mono font-bold text-emerald-400 shrink-0">
+            Ch {currentIndex + 1}/{selectedCourse.modules.length}:
+          </label>
+          <select
+            id="mobile-chapter-select"
+            value={activeModule.id}
+            onChange={(e) => {
+              const found = selectedCourse.modules.find(m => m.id === e.target.value);
+              if (found) setActiveModule(found);
+            }}
+            className="flex-1 w-0 min-w-0 max-w-full truncate min-h-[40px] bg-[#0b101b] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          >
+            {selectedCourse.modules.map((m, idx) => (
+              <option key={m.id} value={m.id}>
+                {idx + 1}. {m.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#090d16] rounded-xl border border-slate-800/90">
+          <button
+            type="button"
+            onClick={() => setMobileZone('theory')}
+            className={`min-h-[38px] py-1.5 px-2 text-xs font-bold rounded-lg transition-all duration-200 truncate ${
+              mobileZone === 'theory'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            📖 Lesson &amp; Use Cases
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileZone('deck')}
+            className={`min-h-[38px] py-1.5 px-2 text-xs font-bold rounded-lg transition-all duration-200 truncate ${
+              mobileZone === 'deck'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            ⚡ Code Lab &amp; Quiz ({lessonContent?.quizzes?.length || 0})
+          </button>
+        </div>
+      </div>
+
+      {/* Main Full-Width Desktop & Mobile Workspace with Smooth Animated Columns */}
+      <div
+        className={`relative flex-1 grid grid-cols-1 min-h-[760px] lg:h-[calc(100vh-146px)] transition-all duration-300 ease-out ${
+          isSidebarOpen
+            ? isCodeLabOpen
+              ? isWideLab
+                ? 'lg:grid-cols-[240px_minmax(0,1fr)_520px] xl:grid-cols-[255px_minmax(0,1fr)_600px] 2xl:grid-cols-[270px_minmax(0,1fr)_660px]'
+                : 'lg:grid-cols-[240px_minmax(0,1fr)_400px] xl:grid-cols-[255px_minmax(0,1fr)_450px] 2xl:grid-cols-[270px_minmax(0,1fr)_500px]'
+              : 'lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]'
+            : isCodeLabOpen
+              ? isWideLab
+                ? 'lg:grid-cols-[minmax(0,1fr)_540px] xl:grid-cols-[minmax(0,1fr)_640px]'
+                : 'lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_480px]'
+              : 'lg:grid-cols-[minmax(0,1fr)]'
+        }`}
+      >
+        {/* Column 1: Grouped 25-Chapter Sidebar */}
+        {isSidebarOpen && (
+          <aside className="hidden lg:flex border-r border-slate-800 bg-[#0e1525] p-3 flex-col gap-2 overflow-y-auto h-full">
+            <div className="space-y-2 pb-2 border-b border-slate-800/80">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                  {selectedCourse.shortTag} Syllabus
+                </span>
+                <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                  {completedSet.size}/{selectedCourse.modules.length}
+                </span>
+              </div>
+              <input
+                type="text"
+                value={sidebarFilter}
+                onChange={(e) => setSidebarFilter(e.target.value)}
+                placeholder={`Filter ${selectedCourse.modules.length} chapters...`}
+                aria-label="Filter chapters in sidebar"
+                className="w-full bg-[#0b101b] border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-0.5">
+              {groupedSidebarModules.map(group => (
+                <div key={group.groupName} className="space-y-1">
+                  <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {group.groupName}
+                  </div>
+                  {group.items.map(({ mod, index }) => {
+                    const isSelected = mod.id === activeModule.id;
+                    const isDone = completedSet.has(mod.id);
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        onClick={() => setActiveModule(mod)}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex items-start justify-between gap-1.5 ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                            : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+                        }`}
+                      >
+                        <span className="leading-snug">
+                          <span className="font-mono opacity-75 mr-1">{index + 1}.</span>
+                          {mod.title}
+                        </span>
+                        {isDone && (
+                          <span className={isSelected ? 'text-white font-bold shrink-0' : 'text-emerald-400 font-bold shrink-0'}>
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </aside>
+        )}
+
+        {/* Column 2: Center Interactive Lesson Page */}
+        <div
+          className={`p-4 sm:p-6 xl:p-8 overflow-y-auto h-full border-r border-slate-800 space-y-6 ${
+            mobileZone === 'theory' ? 'block' : 'hidden lg:block'
+          }`}
+        >
+          {/* 1. Student-Friendly "Plain English" Intuition & Real-World Analogy Box */}
+          <div className="bg-[#111c2d] border border-slate-800 rounded-xl p-4 sm:p-5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-400">
+                Chapter {currentIndex + 1} Overview · Plain-English Intuition
+              </span>
+              <span className="text-[11px] font-mono text-slate-400">
+                {activeModule.difficulty} · {lessonContent?.estimatedReadingTime || '10 mins'}
+              </span>
+            </div>
+            <p className="text-sm text-slate-100 leading-relaxed">
+              {lessonContent?.beginnerSummary}
+            </p>
+            {lessonContent?.realWorldAnalogy && (
+              <div className="bg-[#0b101b]/90 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 leading-relaxed">
+                <strong className="text-amber-400">Mental Model &amp; Analogy: </strong>
+                {lessonContent.realWorldAnalogy}
+              </div>
+            )}
+            {lessonContent?.keyTakeaways && lessonContent.keyTakeaways.length > 0 && (
+              <ul className="pt-1 space-y-1 text-xs text-slate-300 list-disc list-inside">
+                {lessonContent.keyTakeaways.map((kt, idx) => (
+                  <li key={idx}>{kt}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* 2. Quick Syntax & Concept Reference Table */}
+          {lessonContent?.syntaxCheatTable && lessonContent.syntaxCheatTable.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0e1525]">
+              <div className="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 text-xs font-bold text-white flex items-center justify-between">
+                <span>Quick Syntax &amp; Architecture Reference</span>
+                <span className="text-[11px] font-mono text-emerald-400">Reference Table</span>
+              </div>
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/50 text-slate-400">
+                    <th className="py-2 px-3.5">Construct / Syntax</th>
+                    <th className="py-2 px-3.5">What It Does</th>
+                    <th className="py-2 px-3.5 font-mono">Example</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/70">
+                  {lessonContent.syntaxCheatTable.map((row, rIdx) => (
+                    <tr key={rIdx}>
+                      <td className="py-2 px-3.5 font-mono font-semibold text-emerald-400">{row.syntax}</td>
+                      <td className="py-2 px-3.5 text-slate-200">{row.description}</td>
+                      <td className="py-2 px-3.5 font-mono text-blue-300">{row.example}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 3. Time & Space Complexity Masterclass Breakdown + Table (Strictly for DSA Complexity Module ds-1) */}
+          {activeModule.id === 'ds-1' && lessonContent?.complexityTable && lessonContent.complexityTable.length > 0 && (
+            <div data-testid="dsa-complexity-master-card" className="rounded-2xl border border-slate-800 bg-[#0e1525] overflow-hidden shadow-md">
+              <div className="px-4 py-3 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white">
+                    Complete Time &amp; Space Complexity Master Reference (O(1) → O(N!))
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleTryCodeInSandbox(
+                      lessonContent.codingChallenge?.starterCode || sandboxInitialCode,
+                      lessonContent.codingChallenge?.language || sandboxLanguage
+                    )
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-[11px] font-bold text-emerald-300 hover:text-white transition-colors"
+                >
+                  ⚡ Benchmark All 9 Complexities in Popup Editor →
+                </button>
+              </div>
+
+              {/* Visual Time T(N), Space S(N), and Mathematical Proof Summary Cards */}
+              <div className="p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-2.5 border-b border-slate-800/80 bg-[#0b101b]/70">
+                <div className="p-3 rounded-xl bg-[#11192b] border border-emerald-500/30">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold">
+                    Time Complexity Hierarchy T(N)
+                  </div>
+                  <div className="text-xs sm:text-sm font-mono font-extrabold text-white mt-0.5">
+                    O(1) &lt; O(log N) &lt; O(√N) &lt; O(N) &lt; O(N log N) &lt; O(N²) &lt; O(2ⁿ) &lt; O(N!)
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                    Measures how elementary CPU operations scale with input size N (1 sec ≈ 10⁸ ops).
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#11192b] border border-blue-500/30">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-blue-400 font-bold">
+                    Space Complexity S(N) = Heap + Call Stack
+                  </div>
+                  <div className="text-xs sm:text-sm font-mono font-extrabold text-white mt-0.5">
+                    Auxiliary Memory + Recursion Depth
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                    Counts extra arrays/maps plus maximum simultaneous active stack frames on the call stack.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#11192b] border border-amber-500/30">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+                    Why O(log N) &amp; Why O(N log N)?
+                  </div>
+                  <div className="text-xs font-mono font-bold text-amber-200 mt-1">
+                    Halving N → N/2ᵏ = 1 ⇒ k = log₂(N) steps
+                  </div>
+                  <div className="text-[11px] font-mono text-emerald-300 mt-0.5">
+                    log₂(N) tree levels × O(N) work/level = O(N log N)
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-300">
+                      <th className="py-2.5 px-3.5">Complexity Class &amp; Pattern</th>
+                      <th className="py-2.5 px-3.5 font-mono">Time Complexity</th>
+                      <th className="py-2.5 px-3.5 font-mono">Space Complexity</th>
+                      <th className="py-2.5 px-3.5">Why It Happens &amp; Concrete Examples</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/70">
+                    {lessonContent.complexityTable.map((row, rIdx) => (
+                      <tr key={rIdx} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3.5 font-semibold text-white">{formatLatexMath(row.operation)}</td>
+                        <td className="py-2.5 px-3.5 font-mono text-emerald-400 tabular-nums">{formatLatexMath(row.timeComplexity)}</td>
+                        <td className="py-2.5 px-3.5 font-mono text-blue-400 tabular-nums">{formatLatexMath(row.spaceComplexity)}</td>
+                        <td className="py-2.5 px-3.5 text-slate-300">{formatLatexMath(row.notes)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 3.2 Track HOME Foundational Research, RFCs & Industry Breakthroughs (Shown on Chapter 1 HOME Modules) */}
+          {lessonContent?.homeResearchHighlights && lessonContent.homeResearchHighlights.length > 0 && (
+            <div
+              data-testid="home-research-showcase"
+              className="bg-[#0f172a] border border-blue-500/35 rounded-2xl overflow-hidden shadow-md"
+            >
+              <div className="px-4 py-3 bg-gradient-to-r from-blue-950/70 via-slate-900 to-slate-900 border-b border-blue-500/25 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white">
+                    Track HOME · Foundational Research Papers, RFCs &amp; Architectural Breakthroughs
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-blue-300">
+                  {selectedCourse.shortTag} Systems Lineage
+                </span>
+              </div>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {lessonContent.homeResearchHighlights.map((paper, pIdx) => (
+                  <div
+                    key={pIdx}
+                    className="bg-[#0a101d] border border-slate-800/90 rounded-xl p-3.5 flex flex-col justify-between gap-2.5"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-mono font-bold text-blue-400">
+                          {paper.organizationOrPaper}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">
+                          {paper.year}
+                        </span>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-white leading-snug">
+                        {paper.title}
                       </h4>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        {lessonContent.codingChallenge.description}
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        {paper.breakthroughSummary}
                       </p>
                     </div>
-
-                    <div className="border border-slate-800 rounded-xl overflow-hidden shadow-lg bg-[#141b2b]">
-                      <CodePlayground
-                        initialCode={lessonContent.codingChallenge.starterCode}
-                        language={lessonContent.codingChallenge.language}
-                      />
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold shrink-0">
+                        Production Adoption:
+                      </span>
+                      <span className="text-[11px] text-slate-300 text-right">
+                        {paper.productionImpact}
+                      </span>
                     </div>
-
-                    {lessonContent.codingChallenge.hint && (
-                      <div className="bg-blue-950/20 border border-blue-900/40 rounded-lg p-3 text-xs text-blue-300">
-                        <span className="font-semibold text-blue-200">Engineering Hint: </span>
-                        {lessonContent.codingChallenge.hint}
-                      </div>
-                    )}
                   </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-500 text-xs">
-                    No coding challenge for this theoretical overview module.
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 3.5 Module-Specific Real-World Industry Use Cases & Production Case Studies */}
+          {lessonContent?.realWorldUseCases && lessonContent.realWorldUseCases.length > 0 && (
+            <div
+              data-testid="real-world-use-cases-section"
+              className="bg-[#11192a] border border-slate-800 rounded-2xl overflow-hidden shadow-md"
+            >
+              <div className="px-4 py-3 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white">
+                    Real-World Industry Use Cases · {activeModule.title}
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-emerald-400">
+                  3 Production Case Studies · Runnable in Pop-Out Editor
+                </span>
+              </div>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                {lessonContent.realWorldUseCases.map((uc, uIdx) => (
+                  <div
+                    key={uIdx}
+                    className="bg-[#0b101b] border border-slate-800/90 hover:border-emerald-500/40 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 transition-colors"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-extrabold text-emerald-400 font-mono">
+                          {uc.company}
+                        </span>
+                        <span className="text-[10px] font-mono font-semibold text-blue-300 bg-blue-950/50 border border-blue-800/50 px-2 py-0.5 rounded">
+                          Case #{uIdx + 1}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-100 leading-snug">
+                        {uc.scenario}
+                      </p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        {uc.architectureNote}
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                          Production SLA
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-emerald-300 text-right">
+                          {uc.impactMetric}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleTryCodeInSandbox(
+                            uc.codeSnippet || lessonContent.codingChallenge?.starterCode || sandboxInitialCode,
+                            uc.codeLanguage || lessonContent.codingChallenge?.language || sandboxLanguage
+                          )
+                        }
+                        className="w-full py-2 px-2.5 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/35 hover:border-emerald-400 text-[11px] font-bold text-emerald-300 hover:text-white transition-colors flex items-center justify-between"
+                      >
+                        <span>⚡ Pop Out Case Study in Editor</span>
+                        <span aria-hidden="true">⤢</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 4. Main Tutorial Article + Embedded Architecture Diagram SVG + "Try it Yourself" Buttons */}
+          {lessonContent && (
+            <MarkdownRenderer
+              content={lessonContent.contentMarkdown}
+              svg={lessonContent.diagramSvg}
+              onTryCode={handleTryCodeInSandbox}
+            />
+          )}
+
+          {/* 5. Curated Must-Solve Practice Exercises Lab (Essential Exercises to Master This Topic) */}
+          {lessonContent?.mustSolveExercises && lessonContent.mustSolveExercises.length > 0 && (
+            <div
+              data-testid="must-solve-exercises-lab"
+              className="bg-[#10192b] border border-emerald-500/40 rounded-2xl overflow-hidden shadow-lg"
+            >
+              <div className="px-4 sm:px-5 py-3.5 bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border-b border-emerald-500/30 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-300">
+                      Must-Solve Practice Lab
+                    </span>
+                    <span className="text-xs font-mono text-slate-400">
+                      {lessonContent.mustSolveExercises.length} Essential Exercises
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-white mt-1">
+                    Must-Solve Learning &amp; Command/Code Exercises for {activeModule.title}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleTryCodeInSandbox(
+                      lessonContent.codingChallenge?.starterCode || sandboxInitialCode,
+                      lessonContent.codingChallenge?.language || sandboxLanguage
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shadow-sm"
+                >
+                  ⚡ Open Interactive Popup Code Lab →
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-5 space-y-4">
+                {lessonContent.mustSolveExercises.map((ex, idx) => {
+                  const status = mustSolveStatuses[ex.id] || 'idle';
+                  const isAnswerShown = !!mustSolveShowAns[ex.id];
+                  const val = mustSolveInputs[ex.id] ?? '';
+
+                  return (
+                    <div
+                      key={ex.id}
+                      data-testid={`must-solve-card-${idx + 1}`}
+                      className={`rounded-xl border p-4 space-y-3 transition-colors ${
+                        status === 'correct'
+                          ? 'bg-emerald-950/20 border-emerald-500/60'
+                          : 'bg-[#0b111e] border-slate-800'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-mono font-extrabold text-emerald-400">
+                            #{idx + 1}
+                          </span>
+                          <h4 className="text-sm font-bold text-white">{ex.title}</h4>
+                          <span
+                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                              ex.difficulty === 'Interview Must-Solve'
+                                ? 'bg-amber-950/60 border-amber-600/50 text-amber-300'
+                                : ex.difficulty === 'Core Practice'
+                                ? 'bg-blue-950/60 border-blue-600/50 text-blue-300'
+                                : 'bg-emerald-950/60 border-emerald-600/50 text-emerald-300'
+                            }`}
+                          >
+                            {ex.difficulty}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                            +{ex.xp} XP
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextShow = !isAnswerShown;
+                            setMustSolveShowAns(prev => ({ ...prev, [ex.id]: nextShow }));
+                            if (nextShow) {
+                              setMustSolveInputs(prev => ({ ...prev, [ex.id]: ex.answer }));
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-300 hover:text-white transition-colors"
+                        >
+                          {isAnswerShown ? 'Hide Solution' : 'Reveal Solution'}
+                        </button>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                        {formatLatexMath(ex.scenario)}
+                      </p>
+
+                      <form
+                        onSubmit={e => {
+                          e.preventDefault();
+                          handleVerifyMustSolve(ex);
+                        }}
+                        className="space-y-3"
+                      >
+                        <div className="bg-[#070b12] border border-slate-800 rounded-xl p-3.5 font-mono text-xs sm:text-sm text-slate-200 overflow-x-auto leading-relaxed flex flex-wrap items-center gap-1.5">
+                          <span className="whitespace-pre-wrap text-slate-400">{ex.codeBefore}</span>
+                          <input
+                            type="text"
+                            aria-label={`Must-solve exercise ${idx + 1} input`}
+                            value={val}
+                            onChange={e => {
+                              const nextVal = e.target.value;
+                              setMustSolveInputs(prev => ({ ...prev, [ex.id]: nextVal }));
+                              setMustSolveStatuses(prev => ({ ...prev, [ex.id]: 'idle' }));
+                            }}
+                            placeholder="Write command or code..."
+                            style={{
+                              width: `${Math.max(16, (ex.answer.length || 8) + 6)}ch`,
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-slate-900 border border-emerald-500/80 text-emerald-300 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                          <span className="whitespace-pre-wrap text-slate-400">{ex.codeAfter}</span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="submit"
+                              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
+                            >
+                              Verify Answer »
+                            </button>
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              Hint: {formatLatexMath(ex.hint)}
+                            </span>
+                          </div>
+
+                          {status === 'correct' && (
+                            <span className="text-xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-600/60 px-3 py-1 rounded-lg">
+                              ✓ Verified Correct! (+{ex.xp} XP)
+                            </span>
+                          )}
+                          {status === 'wrong' && (
+                            <span className="text-xs font-bold text-amber-300 bg-amber-950/70 border border-amber-600/60 px-3 py-1 rounded-lg">
+                              Not quite — check the hint or click &quot;Reveal Solution&quot;
+                            </span>
+                          )}
+                        </div>
+                      </form>
+
+                      {(status === 'correct' || isAnswerShown) && (
+                        <div className="p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-slate-300 space-y-1">
+                          <div className="font-mono text-[11px] text-emerald-400 font-bold">
+                            Expected Answer: <code className="text-white bg-slate-800 px-1.5 py-0.5 rounded">{ex.answer}</code>
+                          </div>
+                          <p className="leading-relaxed text-slate-300">{formatLatexMath(ex.explanation)}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 5.5 Inline Chapter Quiz & Verified Interview Q&A (Always accessible in Full-Width View) */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 pt-2">
+            {lessonContent?.quizzes && lessonContent.quizzes.length > 0 && (
+              <div className="bg-[#11192a] border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    Chapter Mastery Quiz ({lessonContent.quizzes.length} Questions)
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-400">+100 XP</span>
+                </div>
+                <QuizComponent
+                  questions={lessonContent.quizzes}
+                  onComplete={(score) => {
+                    const user = db.getCurrentUser();
+                    if (user && activeModule) {
+                      db.markModuleComplete(user.id, selectedCourse.id, activeModule.id, score);
+                      onComplete(activeModule.id);
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            {lessonContent?.interviewQuestions && lessonContent.interviewQuestions.length > 0 && (
+              <div className="bg-[#11192a] border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
+                    Verified Technical Interview Q&amp;A ({lessonContent.interviewQuestions.length})
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-400">Production Readiness</span>
+                </div>
+                <div className="space-y-3">
+                  {lessonContent.interviewQuestions.map((q, idx) => (
+                    <div key={idx} className="bg-[#0b101b] border border-slate-800 rounded-xl p-3.5 space-y-2">
+                      <div className="text-[11px] font-bold text-emerald-400 font-mono">
+                        {q.companyTag || 'Senior Engineering'} Interview Question
+                      </div>
+                      <div className="text-xs sm:text-sm font-semibold text-white leading-snug">
+                        {q.question}
+                      </div>
+                      <div className="text-xs text-slate-300 bg-slate-900/90 p-3 rounded-lg leading-relaxed border border-slate-800/80">
+                        {q.answer}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 6. Unified SaaS Chapter Command & Studio Pop-Out Dock (Zero Button Chaos) */}
+          <div
+            data-testid="chapter-popout-dock"
+            className="mt-6 bg-[#0d1526] border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-lg flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3"
+          >
+            {/* Left Zone: Chapter Position & Previous Stepper */}
+            <div className="flex items-center justify-between xl:justify-start gap-2.5">
+              <button
+                type="button"
+                onClick={handlePreviousModule}
+                disabled={!prevModule}
+                className="min-h-[40px] px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-xs font-bold transition-colors whitespace-nowrap"
+              >
+                ← Prev Chapter
+              </button>
+              <span className="text-[11px] font-mono text-slate-400 px-2 py-1 rounded-lg bg-[#090e1a] border border-slate-800/80 whitespace-nowrap">
+                Ch {currentIndex + 1} of {selectedCourse.modules.length}
+              </span>
+            </div>
+
+            {/* Center Zone: Unified Code Studio Pop-Out & Split Drawer Controls */}
+            <div className="flex flex-wrap items-center justify-center gap-2 bg-[#090e1a] border border-slate-800/90 rounded-xl p-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModalFullscreen(false);
+                  setIsSplitTryitOpen(true);
+                }}
+                className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold transition-colors flex items-center gap-1.5 shadow-sm whitespace-nowrap"
+              >
+                <span>⚡ Pop Out Live Code Editor</span>
+                <span aria-hidden="true">⤢</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModalFullscreen(true);
+                  setIsSplitTryitOpen(true);
+                }}
+                className="min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-xs font-bold transition-colors whitespace-nowrap"
+                title="Open Live Code Editor directly in Fullscreen IDE mode"
+              >
+                ⛶ Fullscreen IDE
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCodeLabOpen((prev) => !prev)}
+                className={`hidden lg:inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap ${
+                  isCodeLabOpen
+                    ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                {isCodeLabOpen ? '◨ Hide Split Lab' : '◨ Dock Split Lab'}
+              </button>
+            </div>
+
+            {/* Right Zone: Completion Action & Next Chapter Stepper */}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleMarkCurrentComplete}
+                className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors whitespace-nowrap ${
+                  isCurrentCompleted
+                    ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
+                    : 'bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-emerald-400'
+                }`}
+              >
+                {isCurrentCompleted ? '✓ Completed' : '✓ Mark Complete (+50 XP)'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextModule}
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors whitespace-nowrap"
+              >
+                {nextModule ? `Next: Ch ${currentIndex + 2} →` : 'Next Track →'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Column 3: Right Interactive Code Sandbox, Quiz & Interview Q&A (Animated Toggle Drawer) */}
+        <div
+          className={`flex-col bg-[#0e1422] overflow-y-auto h-full transition-all duration-300 ease-out ${
+            labPulse ? 'ring-2 ring-emerald-500/80 bg-[#101b2e]' : ''
+          } ${
+            mobileZone === 'deck'
+              ? 'flex'
+              : isCodeLabOpen
+                ? 'hidden lg:flex'
+                : 'hidden'
+          }`}
+        >
+          <div className="border-b border-slate-800 p-2 flex items-center gap-1 bg-slate-900/60 sticky top-0 z-20">
+            {[
+              { id: 'code', label: 'Code Lab' },
+              { id: 'quiz', label: `Quiz (${lessonContent?.quizzes?.length || 0})` },
+              { id: 'interview', label: `Interview (${lessonContent?.interviewQuestions?.length || 0})` },
+              { id: 'resources', label: 'References' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveDeckTab(tab.id as DeckTab)}
+                className={`flex-1 min-h-[38px] py-1.5 px-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap text-center truncate ${
+                  activeDeckTab === tab.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setIsCodeLabOpen(false);
+                setMobileZone('theory');
+              }}
+              className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/40 text-xs font-bold text-slate-300 hover:text-rose-300 transition-colors shrink-0"
+              title="Close Code Lab panel to expand reading view"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="p-4 lg:p-5 flex-1 space-y-5">
+            {activeDeckTab === 'code' && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span>{customTryCode ? 'Loaded from Lesson ("Try it Yourself")' : 'Interactive Execution Sandbox'}</span>
+                    </div>
+                    <h4 className="text-sm sm:text-base font-bold text-white mt-0.5 truncate">
+                      {customTryCode
+                        ? `Live Editor · ${activeModule.title}`
+                        : lessonContent?.codingChallenge?.title || activeModule.title}
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsWideLab((prev) => !prev)}
+                      className="hidden lg:inline-flex items-center min-h-[34px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-semibold text-slate-200 hover:text-white transition-colors"
+                      title="Toggle Wide Lab Split Mode"
+                    >
+                      {isWideLab ? 'Compact ◧' : 'Wide Lab ◨'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsSplitTryitOpen(true)}
+                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-[11px] font-bold text-emerald-300 hover:text-white transition-colors shrink-0"
+                      title="Open Fullscreen Split-Screen IDE"
+                    >
+                      Fullscreen ⤢
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCodeLabOpen(false);
+                        setMobileZone('theory');
+                      }}
+                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-semibold text-slate-300 hover:text-white transition-colors shrink-0"
+                      title="Close Code Lab Drawer"
+                    >
+                      Close ✕
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {lessonContent?.codingChallenge?.description ||
+                    `Interactive ${selectedCourse.shortTag || selectedCourse.title} execution environment. Edit the code below and click Run Code to inspect live output.`}
+                </p>
+
+                <CodePlayground
+                  initialCode={sandboxInitialCode}
+                  language={sandboxLanguage}
+                  courseId={selectedCourse.id}
+                />
+
+                {lessonContent?.codingChallenge?.hint && (
+                  <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-300">
+                    <strong className="text-emerald-400">Tip: </strong>
+                    {lessonContent.codingChallenge.hint}
                   </div>
                 )}
               </div>
             )}
 
-            {/* TAB 2: Scenario Quiz */}
             {activeDeckTab === 'quiz' && (
               <div>
                 {lessonContent?.quizzes && lessonContent.quizzes.length > 0 ? (
@@ -639,48 +1375,44 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                     }}
                   />
                 ) : (
-                  <div className="text-center py-12 text-slate-500 text-xs">
-                    No quiz questions available for this module.
+                  <div className="text-center py-12 text-slate-400 text-xs">
+                    No quiz questions for this chapter. Try the Concept Check exercise or Code Sandbox!
                   </div>
                 )}
               </div>
             )}
 
-            {/* TAB 3: FAANG Questions */}
             {activeDeckTab === 'interview' && (
               <div className="space-y-4">
                 <div className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
-                  Verified SDE-2 Interview Questions
+                  Verified Engineering Interview Questions
                 </div>
                 {lessonContent?.interviewQuestions && lessonContent.interviewQuestions.length > 0 ? (
                   lessonContent.interviewQuestions.map((q, idx) => (
                     <div key={idx} className="bg-[#141b2a] border border-slate-800 rounded-xl p-4 space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-blue-400 font-mono">
-                          {q.companyTag || 'FAANG'} Question
-                        </span>
+                      <div className="text-xs font-bold text-emerald-400 font-mono">
+                        {q.companyTag || 'Senior Engineering'} Interview Question
                       </div>
                       <div className="text-sm font-semibold text-white leading-snug">
                         {q.question}
                       </div>
-                      <div className="text-xs text-slate-400 bg-slate-900/80 p-3 rounded-lg leading-relaxed border border-slate-800/60 font-mono">
+                      <div className="text-xs text-slate-300 bg-slate-900/80 p-3 rounded-lg leading-relaxed border border-slate-800">
                         {q.answer}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-12 text-slate-500 text-xs">
-                    No specific company interview records for this module.
+                  <div className="text-center py-12 text-slate-400 text-xs">
+                    Review the core trade-offs in the tutorial article for interview readiness.
                   </div>
                 )}
               </div>
             )}
 
-            {/* TAB 4: Resources */}
             {activeDeckTab === 'resources' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
-                  Authoritative Papers & Engineering Handbooks
+                  Further Reading &amp; Specifications
                 </div>
                 {lessonContent?.resources && lessonContent.resources.length > 0 ? (
                   lessonContent.resources.map((res, idx) => (
@@ -691,12 +1423,11 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                           {res.authorOrSource} · {res.type}
                         </div>
                       </div>
-                      <span className="text-xs text-blue-400 font-medium shrink-0">Verified</span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-12 text-slate-500 text-xs">
-                    Core curriculum is fully self-contained.
+                  <div className="text-center py-12 text-slate-400 text-xs">
+                    All required materials are included directly in this interactive module.
                   </div>
                 )}
               </div>
@@ -705,30 +1436,110 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         </div>
       </div>
 
+      {/* Interactive Popup & Full-Screen Code Editor Modal (Triggered by "Try it Yourself") */}
+      {isSplitTryitOpen && (
+        <div
+          data-testid="popup-tryit-modal"
+          className={`fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center transition-all duration-200 ${
+            isModalFullscreen ? 'p-0' : 'p-2 sm:p-6'
+          }`}
+        >
+          <div
+            className={`bg-[#0e1525] border border-emerald-500/40 flex flex-col overflow-hidden shadow-2xl transition-all duration-200 ${
+              isModalFullscreen
+                ? 'w-screen h-screen rounded-none border-0'
+                : 'w-full max-w-6xl max-h-[90vh] rounded-2xl'
+            }`}
+          >
+            <div className="px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-[#121a2b] flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    {isModalFullscreen
+                      ? `Full-Screen Split-View Code Editor · ${selectedCourse.shortTag}`
+                      : `Interactive Popup Code Editor · ${selectedCourse.shortTag}`}
+                  </span>
+                </div>
+                <h3 className="text-sm sm:text-base font-bold text-white truncate mt-0.5">
+                  {customTryCode
+                    ? `Try It Yourself: ${activeModule.title}`
+                    : lessonContent?.codingChallenge?.title || activeModule.title}
+                </h3>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  data-testid="toggle-modal-fullscreen"
+                  onClick={() => setIsModalFullscreen((prev) => !prev)}
+                  className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/50 text-xs font-bold text-emerald-300 hover:text-white transition-colors"
+                >
+                  {isModalFullscreen ? '⤡ Windowed Popup' : '⤢ Fullscreen'}
+                </button>
+                <button
+                  type="button"
+                  data-testid="dock-modal-to-side"
+                  onClick={() => {
+                    setIsSplitTryitOpen(false);
+                    setIsCodeLabOpen(true);
+                  }}
+                  className="hidden lg:inline-flex items-center min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 hover:text-white transition-colors"
+                >
+                  ◨ Dock to Side
+                </button>
+                <button
+                  type="button"
+                  data-testid="close-tryit-modal"
+                  onClick={() => setIsSplitTryitOpen(false)}
+                  className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-xs font-bold text-rose-200 hover:text-white transition-colors"
+                >
+                  ✕ Close Editor
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-5 flex-1 overflow-y-auto">
+              <CodePlayground
+                initialCode={sandboxInitialCode}
+                language={sandboxLanguage}
+                courseId={selectedCourse.id}
+                isFullscreen={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bookmark Modal */}
       {showBookmarkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#161f30] w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-2">Bookmark Module</h3>
-            <p className="text-xs text-slate-400 mb-4">Add a personal engineering note to this topic for quick review later.</p>
+            <h3 className="text-lg font-bold text-white mb-2">Save Personal Study Note</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Save a personal revision note for {activeModule.title}. It will appear on your Student Dashboard.
+            </p>
             <textarea
+              aria-label="Study note"
               value={bookmarkNote}
               onChange={(e) => setBookmarkNote(e.target.value)}
-              className="w-full bg-[#0b0f19] p-3 rounded-xl text-white text-sm mb-4 h-28 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 border border-slate-800 font-mono"
-              placeholder="e.g. Remember to review virtual nodes consistent hashing ring math before interview..."
+              className="w-full bg-[#0b0f19] p-3 rounded-xl text-white text-sm mb-4 h-28 resize-none focus:outline-none focus:ring-1 focus:ring-emerald-500 border border-slate-800 font-mono"
+              placeholder="Write your revision takeaway or formula here..."
             />
             <div className="flex justify-end gap-2.5">
               <button
+                type="button"
                 onClick={() => setShowBookmarkModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                className="min-h-[42px] px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSaveBookmark}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white rounded-lg shadow-md"
+                className="min-h-[42px] px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white rounded-lg"
               >
-                Save Bookmark
+                Save Note
               </button>
             </div>
           </div>

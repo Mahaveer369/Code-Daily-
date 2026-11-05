@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { COURSES } from './LearningModule';
+import { PRACTICE_PROBLEMS } from '../services/practiceProblems';
+import { CHEAT_SHEETS } from '../services/cheatSheetsData';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onNavigate: (tab: 'dashboard' | 'daily' | 'learn' | 'admin', courseId?: string, moduleId?: string) => void;
+  onNavigate: (
+    tab: 'dashboard' | 'daily' | 'learn' | 'practice' | 'visualizer' | 'cheatsheets' | 'admin',
+    courseId?: string,
+    moduleId?: string
+  ) => void;
   onOpenAccount: () => void;
 }
 
@@ -13,7 +19,7 @@ interface SearchItem {
   title: string;
   subtitle: string;
   category: string;
-  type: 'course' | 'module' | 'action';
+  type: 'course' | 'module' | 'action' | 'problem' | 'cheatsheet';
   action: () => void;
 }
 
@@ -23,7 +29,6 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // Focus input whenever opened
   useEffect(() => {
     if (isOpen) {
       setQuery('');
@@ -32,74 +37,121 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
     }
   }, [isOpen]);
 
-  // Build searchable index
   const items: SearchItem[] = React.useMemo(() => {
-    const list: SearchItem[] = [];
+    const list: SearchItem[] = [
+      {
+        id: 'act-practice',
+        title: 'Open Coding Practice Arena (Automated Judge)',
+        subtitle: 'Solve algorithmic coding problems with automated multi-case verification',
+        category: 'Practice',
+        type: 'action',
+        action: () => {
+          onNavigate('practice');
+          onClose();
+        },
+      },
+      {
+        id: 'act-visualizer',
+        title: 'Launch Interactive Dry-Run Visualizers',
+        subtitle: 'Step-by-step Binary Search, Sorting, SQL Joins & CPU Scheduling animations',
+        category: 'Simulator',
+        type: 'action',
+        action: () => {
+          onNavigate('visualizer');
+          onClose();
+        },
+      },
+      {
+        id: 'act-cheatsheets',
+        title: 'Open Quick-Reference Cheat Sheets & Roadmaps',
+        subtitle: 'Big-O complexity tables, Python idioms, SQL window functions & career roadmaps',
+        category: 'Reference',
+        type: 'action',
+        action: () => {
+          onNavigate('cheatsheets');
+          onClose();
+        },
+      },
+      {
+        id: 'act-learn',
+        title: 'Browse All 14 Interactive Subject Tracks (350 Modules)',
+        subtitle: 'HTML5, CSS3, JS, TS, React 19, Python, SQL/DBMS, DSA, C++/Java, OS, Networks, System Design, CS Core, AI',
+        category: 'Tutorials',
+        type: 'action',
+        action: () => {
+          onNavigate('learn');
+          onClose();
+        },
+      },
+      {
+        id: 'act-daily',
+        title: 'Open Daily Revision & Interview Q&A Mix',
+        subtitle: 'Review daily flashcards and quick definitions',
+        category: 'Daily',
+        type: 'action',
+        action: () => {
+          onNavigate('daily');
+          onClose();
+        },
+      },
+      {
+        id: 'act-account',
+        title: 'Student Profile, Export JSON & Cloud Sync',
+        subtitle: 'Manage Firebase account or export learning records',
+        category: 'Account',
+        type: 'action',
+        action: () => {
+          onOpenAccount();
+          onClose();
+        },
+      },
+    ];
 
-    // Core Actions
-    list.push({
-      id: 'act-dashboard',
-      title: 'Go to Performance Dashboard',
-      subtitle: 'View overall syllabus mastery, XP, streaks and completed tracks',
-      category: 'Navigation',
-      type: 'action',
-      action: () => {
-        onNavigate('dashboard');
-        onClose();
-      }
+    // Add Practice Problems
+    PRACTICE_PROBLEMS.forEach((prob) => {
+      list.push({
+        id: `prob-${prob.id}`,
+        title: `Practice: ${prob.title}`,
+        subtitle: `${prob.difficulty} · ${prob.category} · ${prob.expectedTimeComplexity}`,
+        category: 'Coding Problem',
+        type: 'problem',
+        action: () => {
+          onNavigate('practice');
+          onClose();
+        },
+      });
     });
 
-    list.push({
-      id: 'act-daily',
-      title: 'Open Daily Interview Mix',
-      subtitle: 'Solve today’s curated FAANG algorithm and system design questions',
-      category: 'Navigation',
-      type: 'action',
-      action: () => {
-        onNavigate('daily');
-        onClose();
-      }
-    });
-
-    list.push({
-      id: 'act-learn',
-      title: 'Browse All 7 Curriculum Tracks',
-      subtitle: 'System Design, DBMS, OS, DSA, Networks, Python, and CS Fundamentals',
-      category: 'Navigation',
-      type: 'action',
-      action: () => {
-        onNavigate('learn');
-        onClose();
-      }
-    });
-
-    list.push({
-      id: 'act-account',
-      title: 'Security, Privacy & Account Settings',
-      subtitle: 'Export GDPR data, password reset, UID session info',
-      category: 'Security',
-      type: 'action',
-      action: () => {
-        onOpenAccount();
-        onClose();
-      }
+    // Add Cheat Sheets
+    CHEAT_SHEETS.forEach((sheet) => {
+      list.push({
+        id: `sheet-${sheet.id}`,
+        title: sheet.title,
+        subtitle: sheet.summary,
+        category: 'Cheat Sheet',
+        type: 'cheatsheet',
+        action: () => {
+          onNavigate('cheatsheets');
+          onClose();
+        },
+      });
     });
 
     // Courses & Modules
-    COURSES.forEach(course => {
+    COURSES.forEach((course) => {
       list.push({
         id: `course-${course.id}`,
         title: course.title,
-        subtitle: `${course.modules.length} hands-on modules with runnable sandboxes`,
-        category: 'Curriculum Track',
+        subtitle: `${course.modules.length} chapters with Try-It-Yourself sandboxes`,
+        category: course.shortTag || 'Track',
         type: 'course',
         action: () => {
-          onNavigate('learn', course.id);
+          onNavigate('learn', course.id, course.modules[0]?.id);
           onClose();
-        }
+        },
       });
 
-      course.modules.forEach(module => {
+      course.modules.forEach((module) => {
         list.push({
           id: `mod-${module.id}`,
           title: module.title,
@@ -109,7 +161,7 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
           action: () => {
             onNavigate('learn', course.id, module.id);
             onClose();
-          }
+          },
         });
       });
     });
@@ -117,21 +169,21 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
     return list;
   }, [onNavigate, onClose, onOpenAccount]);
 
-  // Filter items
   const filteredItems = React.useMemo(() => {
     if (!query.trim()) {
-      return items.slice(0, 8); // Default top recommendations
+      return items.slice(0, 10);
     }
     const q = query.toLowerCase();
-    return items.filter(
-      item =>
-        item.title.toLowerCase().includes(q) ||
-        item.subtitle.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-    ).slice(0, 12);
+    return items
+      .filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          item.subtitle.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q)
+      )
+      .slice(0, 14);
   }, [items, query]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return;
 
@@ -141,10 +193,10 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => (prev + 1) % Math.max(1, filteredItems.length));
+        setSelectedIndex((prev) => (prev + 1) % Math.max(1, filteredItems.length));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex(prev => (prev - 1 + filteredItems.length) % Math.max(1, filteredItems.length));
+        setSelectedIndex((prev) => (prev - 1 + filteredItems.length) % Math.max(1, filteredItems.length));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (filteredItems[selectedIndex]) {
@@ -157,7 +209,6 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, filteredItems, selectedIndex, onClose]);
 
-  // Scroll active item into view
   useEffect(() => {
     if (resultsRef.current) {
       const activeElement = resultsRef.current.children[selectedIndex] as HTMLElement;
@@ -170,38 +221,36 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 md:pt-24 px-4 bg-black/75 backdrop-blur-md animate-fadeIn">
-      {/* Click outside to close */}
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 md:pt-20 px-4 bg-black/75 backdrop-blur-md animate-fadeIn">
       <div className="fixed inset-0 -z-10" onClick={onClose} />
 
-      <div className="w-full max-w-2xl bg-[#111827] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        {/* Search Input Bar */}
+      <div className="w-full max-w-2xl bg-[#111827] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
         <div className="flex items-center px-4 py-3.5 border-b border-slate-800 bg-[#162032] gap-3">
-          <svg className="w-5 h-5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
           <input
             ref={inputRef}
             type="text"
+            aria-label="Search all tutorials, coding problems, visualizers, and cheat sheets"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Search tracks, architecture topics, code sandboxes, or actions... (ESC to close)"
+            placeholder="Search tutorials, DSA problems, SQL joins, Flexbox, visualizers... (ESC to close)"
             className="flex-1 bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none"
           />
-          <kbd className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs font-mono px-2 py-1 rounded bg-slate-800 text-slate-300 hover:text-white"
+          >
             ESC
-          </kbd>
+          </button>
         </div>
 
-        {/* Results List */}
         <div ref={resultsRef} className="overflow-y-auto p-2 divide-y divide-slate-800/40">
           {filteredItems.length === 0 ? (
-            <div className="p-8 text-center text-slate-400">
-              <p className="text-sm">No topics or modules matching &quot;{query}&quot;</p>
-              <p className="text-xs text-slate-500 mt-1">Try searching for &quot;Kafka&quot;, &quot;B+ Tree&quot;, &quot;Futex&quot;, &quot;Consistent Hashing&quot;, or &quot;Daily&quot;</p>
+            <div className="p-8 text-center text-slate-400 text-sm">
+              No matching tutorials or problems for &quot;{query}&quot;
             </div>
           ) : (
             filteredItems.map((item, idx) => {
@@ -209,6 +258,7 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={item.action}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors flex items-center justify-between gap-3 ${
@@ -217,38 +267,17 @@ const CommandPalette: React.FC<Props> = ({ isOpen, onClose, onNavigate, onOpenAc
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-white truncate">{item.title}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono shrink-0 uppercase tracking-wider ${
-                        item.type === 'action' ? 'bg-indigo-500/20 text-indigo-300' :
-                        item.type === 'course' ? 'bg-blue-500/20 text-blue-300' :
-                        'bg-slate-800 text-slate-400 border border-slate-700'
-                      }`}>
-                        {item.category}
+                      <span className="font-semibold text-sm text-white truncate">{item.title}</span>
+                      <span className="text-[11px] font-mono text-blue-400 shrink-0">
+                        · {item.category}
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 truncate mt-0.5">{item.subtitle}</p>
-                  </div>
-
-                  <div className="shrink-0 text-slate-500 flex items-center">
-                    {isSelected && (
-                      <kbd className="hidden sm:inline-flex text-[10px] font-mono px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded border border-blue-400/30">
-                        ↵ Enter
-                      </kbd>
-                    )}
                   </div>
                 </button>
               );
             })
           )}
-        </div>
-
-        {/* Footer shortcuts */}
-        <div className="hidden sm:flex items-center justify-between px-4 py-2 border-t border-slate-800 bg-[#0c121e] text-[11px] text-slate-400">
-          <div className="flex items-center gap-3">
-            <span>Use <kbd className="px-1 bg-slate-800 rounded font-mono">↑</kbd> <kbd className="px-1 bg-slate-800 rounded font-mono">↓</kbd> to navigate</span>
-            <span><kbd className="px-1 bg-slate-800 rounded font-mono">Enter</kbd> to select</span>
-          </div>
-          <span>Google-Grade Fast Search</span>
         </div>
       </div>
     </div>

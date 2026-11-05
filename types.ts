@@ -1,14 +1,24 @@
-
 export enum Category {
-  CS_CORE = 'CS Fundamentals',
-  DBMS = 'DBMS',
+  WEB_DEV = 'HTML5 Tutorial',
+  CSS = 'CSS3 Tutorial',
+  JAVASCRIPT = 'JavaScript Tutorial',
+  TYPESCRIPT = 'TypeScript Tutorial',
+  REACT = 'React 19 Tutorial',
+  PYTHON = 'Python Tutorial',
+  SQL = 'SQL & DBMS Tutorial',
+  DSA = 'DSA A-to-Z',
+  CPP_JAVA = 'C++ & Java Tutorial',
+  OOPS = 'OS & Linux Tutorial',
+  NETWORKS = 'Computer Networks',
   SYSTEM_DESIGN = 'System Design',
-  DSA = 'DSA',
-  OOPS = 'Object Oriented Programming',
-  SQL = 'SQL Deep Dive',
+  CS_CORE = 'CS Fundamentals',
+  AI_ML = 'AI, ML & GenAI',
+  AGENTIC_HARNESS = 'Agentic Harness Engineering',
+  DBMS = 'DBMS',
   NOSQL = 'NoSQL & Distributed Data',
-  PYTHON = 'Python Mastery',
-  NETWORKS = 'Computer Networks'
+  GIT_LINUX = 'Git, Linux & DevOps',
+  DOCKER_K8S = 'Docker & Kubernetes',
+  TERRAFORM_CICD = 'Terraform & CI/CD'
 }
 
 export interface DailyTopic {
@@ -34,8 +44,6 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-// --- New Types for Learning Platform ---
-
 export type UserRole = 'admin' | 'user';
 
 export interface UserProfile {
@@ -48,6 +56,7 @@ export interface UserProfile {
   xp: number;
   level: number;
   badges: Badge[];
+  solvedProblemIds?: string[];
 }
 
 export interface Badge {
@@ -62,7 +71,7 @@ export interface CourseProgress {
   completedModuleIds: string[];
   totalModules: number;
   lastAccessedModuleId?: string;
-  quizScores: Record<string, number>; // moduleId -> score
+  quizScores: Record<string, number>;
 }
 
 export interface Bookmark {
@@ -86,6 +95,7 @@ export interface CourseModule {
   title: string;
   description: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
+  sectionGroup?: string;
   isLocked: boolean;
 }
 
@@ -94,6 +104,8 @@ export interface Course {
   title: string;
   category: Category;
   icon: string;
+  shortTag?: string;
+  levelTag?: string;
   modules: CourseModule[];
 }
 
@@ -101,7 +113,7 @@ export interface LessonResource {
   title: string;
   type: 'Book' | 'Research Paper' | 'Documentation' | 'Whitepaper' | 'RFC' | 'Engineering Blog';
   authorOrSource: string;
-  url?: string; // Generated URL
+  url?: string;
 }
 
 export interface QuizQuestion {
@@ -115,31 +127,142 @@ export interface QuizQuestion {
 export interface CodingChallenge {
   title: string;
   description: string;
-  language: 'python' | 'javascript' | 'sql' | 'java';
+  language: 'python' | 'javascript' | 'sql' | 'java' | 'html' | 'cpp' | 'bash';
   starterCode: string;
   solutionCode: string;
   hint: string;
 }
 
-export interface LessonContent {
-  id: string; // Matches module ID for DB storage
+export interface FillBlankExercise {
+  prompt: string;
+  codeBefore: string;
+  answer: string;
+  codeAfter: string;
+  hint: string;
+}
+
+export interface MustSolveExercise {
+  id: string;
   title: string;
-  estimatedReadingTime: string; // e.g. "25 mins"
-  contentMarkdown: string; // The main explanation
-  diagramSvg?: string; // AI generated SVG code
+  difficulty: 'Essential' | 'Core Practice' | 'Mastery Challenge';
+  scenario: string;
+  codeBefore: string;
+  answer: string;
+  acceptedAnswers?: string[];
+  codeAfter: string;
+  hint: string;
+  explanation: string;
+  xp: number;
+}
+
+export interface LessonContent {
+  id: string;
+  title: string;
+  estimatedReadingTime: string;
+  beginnerSummary?: string;
+  realWorldAnalogy?: string;
+  keyTakeaways?: string[];
+  syntaxCheatTable?: {
+    syntax: string;
+    description: string;
+    example: string;
+  }[];
+  complexityTable?: {
+    operation: string;
+    timeComplexity: string;
+    spaceComplexity: string;
+    notes: string;
+  }[];
+  fillBlankExercise?: FillBlankExercise;
+  mustSolveExercises?: MustSolveExercise[];
+  contentMarkdown: string;
+  diagramSvg?: string;
   quizzes: QuizQuestion[];
   codingChallenge?: CodingChallenge;
   interviewQuestions?: {
     question: string;
-    companyTag?: string; // e.g. "Google", "Amazon"
+    companyTag?: string;
     answer: string;
+  }[];
+  homeResearchHighlights?: {
+    title: string;
+    organizationOrPaper: string;
+    year: string;
+    breakthroughSummary: string;
+    productionImpact: string;
+  }[];
+  realWorldUseCases?: {
+    company: string;
+    scenario: string;
+    impactMetric: string;
+    architectureNote: string;
+    codeSnippet?: string;
+    codeLanguage?: string;
   }[];
   practicalProject?: {
     title: string;
     description: string;
     starterCode: string;
   };
-  resources: LessonResource[]; // Recommended reading
+  resources: LessonResource[];
+}
+
+export interface ProblemTestCase {
+  id: string;
+  inputDisplay: string;
+  args: any[];
+  expectedOutput: any;
+  explanation?: string;
+  isHidden?: boolean;
+}
+
+export interface PracticeProblem {
+  id: string;
+  title: string;
+  slug: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  category: string;
+  points: number;
+  companies: string[];
+  tags: string[];
+  isProblemOfTheDay?: boolean;
+  description: string;
+  examples: {
+    input: string;
+    output: string;
+    explanation?: string;
+  }[];
+  constraints: string[];
+  expectedTimeComplexity: string;
+  expectedSpaceComplexity: string;
+  functionName: string;
+  starterCode: {
+    javascript: string;
+    python: string;
+  };
+  solutionCode: {
+    javascript: string;
+    python: string;
+  };
+  hints: string[];
+  testCases: ProblemTestCase[];
+}
+
+export interface CheatSheetSection {
+  heading: string;
+  description: string;
+  code?: string;
+  language?: string;
+  rows?: { term: string; syntax: string; meaning: string }[];
+}
+
+export interface CheatSheet {
+  id: string;
+  title: string;
+  category: string;
+  readTime: string;
+  summary: string;
+  sections: CheatSheetSection[];
 }
 
 export interface AnalyticsData {
@@ -147,6 +270,6 @@ export interface AnalyticsData {
   activeUsers24h: number;
   mostPopularCourse: string;
   totalModulesGenerated: number;
-  systemHealth: number; // 0-100
+  systemHealth: number;
   recentActivity: string[];
 }

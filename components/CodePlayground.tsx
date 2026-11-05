@@ -1,475 +1,456 @@
-
-import React, { useState, useRef, useCallback } from 'react';
-import Editor, { OnMount } from '@monaco-editor/react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Editor from '@monaco-editor/react';
+import DOMPurify from 'dompurify';
 import { db } from '../services/db';
+import { executeSnippet, SnippetExecutionResult } from '../services/codeRunner';
+
+export interface SuitedLanguageOption {
+  id: 'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash';
+  label: string;
+  runtimeBadge: string;
+}
+
+const ALL_LANGUAGE_META: Record<'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash', SuitedLanguageOption> = {
+  python: {
+    id: 'python',
+    label: 'Python 3.12',
+    runtimeBadge: 'Python 3.12 Runtime'
+  },
+  javascript: {
+    id: 'javascript',
+    label: 'JavaScript (ES2025)',
+    runtimeBadge: 'V8 / ES2025 Runtime'
+  },
+  sql: {
+    id: 'sql',
+    label: 'SQL Engine',
+    runtimeBadge: 'Relational SQL Engine'
+  },
+  html: {
+    id: 'html',
+    label: 'HTML5 / CSS3',
+    runtimeBadge: 'HTML5 & CSS3 Live DOM Engine'
+  },
+  cpp: {
+    id: 'cpp',
+    label: 'C++20 / Java',
+    runtimeBadge: 'C++20 & JVM Systems Runtime'
+  },
+  bash: {
+    id: 'bash',
+    label: 'Cloud, Git & Bash CLI',
+    runtimeBadge: 'Git, Docker, K8s & Terraform CLI Terminal'
+  }
+};
+
+const COURSE_SUITED_LANGUAGES: Record<string, ('python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash')[]> = {
+  'c-html': ['html'],
+  'c-css': ['html'],
+  'c-js': ['javascript'],
+  'c-ts': ['javascript'],
+  'c-react': ['javascript', 'html'],
+  'c1': ['python'],
+  'c5': ['sql', 'python'],
+  'c4': ['python', 'cpp', 'javascript'],
+  'c11': ['cpp'],
+  'c3': ['python', 'cpp', 'bash'],
+  'c7': ['python', 'javascript'],
+  'c6': ['python', 'sql', 'javascript'],
+  'c2': ['python', 'cpp'],
+  'c12': ['python'],
+  'c-harness': ['python', 'javascript'],
+  'c-git': ['bash'],
+  'c-docker': ['bash'],
+  'c-terraform': ['bash']
+};
+
+export const normalizeSandboxLang = (rawLang?: string): 'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash' => {
+  const clean = (rawLang || 'python').toLowerCase().trim();
+  if (clean === 'bash' || clean === 'sh' || clean === 'git' || clean === 'shell') return 'bash';
+  if (clean === 'html' || clean === 'css') return 'html';
+  if (clean === 'javascript' || clean === 'js' || clean === 'typescript' || clean === 'ts' || clean === 'jsx' || clean === 'tsx') {
+    return 'javascript';
+  }
+  if (clean === 'sql') return 'sql';
+  if (clean === 'cpp' || clean === 'c++' || clean === 'java' || clean === 'c') return 'cpp';
+  return 'python';
+};
+
+/**
+ * Returns ONLY the programming languages that genuinely suit a given course track.
+ * Prevents showing unrelated languages (e.g. no SQL/C++ in HTML5, no HTML/CSS in DSA or OS).
+ */
+export const getSuitedLanguagesForCourse = (
+  courseId?: string,
+  defaultLang?: string
+): SuitedLanguageOption[] => {
+  if (courseId && COURSE_SUITED_LANGUAGES[courseId]) {
+    return COURSE_SUITED_LANGUAGES[courseId].map((id) => ALL_LANGUAGE_META[id]);
+  }
+  const normalizedDefault = normalizeSandboxLang(defaultLang);
+  return [ALL_LANGUAGE_META[normalizedDefault]];
+};
 
 interface Props {
   initialCode: string;
   language: string;
+  courseId?: string;
+  isFullscreen?: boolean;
   onRun?: (code: string) => void;
 }
 
-interface ExecutionResult {
-  success: boolean;
-  output: string;
-  error: string | null;
-  execution_time_ms: number;
-  language: string;
-}
+const LANGUAGE_TEMPLATES: Record<string, string> = {
+  python: `# Python 3.12 Interactive Sandbox
+def two_pointer_palindrome(s: str) -> bool:
+    left, right = 0, len(s) - 1
+    while left < right:
+        if s[left] != s[right]:
+            return False
+        left += 1
+        right -= 1
+    return True
 
-interface ExecutionHistory {
-  id: number;
-  timestamp: Date;
-  success: boolean;
-  output: string;
-  executionTime: number;
-}
+print("racecar ->", two_pointer_palindrome("racecar"))
+print("system  ->", two_pointer_palindrome("system"))`,
+  javascript: `// JavaScript (ES2025) / TypeScript Interactive Sandbox
+const services = [
+  { name: "API Gateway", p99Ms: 12, healthy: true },
+  { name: "Auth Token Service", p99Ms: 8, healthy: true },
+  { name: "Shard Replica 03", p99Ms: 45, healthy: true }
+];
 
-// API base URL - adjust for production
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const summary = services
+  .filter(s => s.healthy)
+  .map(s => \`\${s.name} (\${s.p99Ms}ms)\`);
 
-// In-browser execution engine when backend executor is unavailable
-const executeInBrowser = (codeStr: string, lang: string): ExecutionResult => {
-  const startTime = performance.now();
-  const normalizedLang = lang.toLowerCase();
+console.log("Active Services:", summary.join(" | "));`,
+  sql: `-- Interactive Relational SQL Sandbox
+-- Preloaded Tables: employees, departments, students, orders
+SELECT name, role, department, salary
+FROM employees
+WHERE salary > 120000
+ORDER BY salary DESC
+LIMIT 4;`,
+  html: `<div style="font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #334155;">
+  <div style="font-size: 11px; color: #34d399; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Code It Out Live Preview</div>
+  <h3 style="margin: 6px 0 8px; font-size: 18px;">Interactive HTML5 &amp; CSS3 Component</h3>
+  <p style="margin: 0 0 14px; font-size: 13px; color: #cbd5e1;">Edit this markup and click Run Code to see instant visual rendering.</p>
+  <button style="background: #10b981; color: #052e16; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700;">
+    Interactive Action
+  </button>
+</div>`,
+  cpp: `#include <iostream>
+#include <vector>
+#include <algorithm>
+using namespace std;
 
-  if (normalizedLang === 'javascript' || normalizedLang === 'js') {
-    const logs: string[] = [];
-    const customConsole = {
-      log: (...args: any[]) => logs.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a))).join(' ')),
-      error: (...args: any[]) => logs.push('[Error] ' + args.join(' ')),
-      warn: (...args: any[]) => logs.push('[Warn] ' + args.join(' ')),
-      info: (...args: any[]) => logs.push(args.join(' ')),
-    };
-
-    try {
-      const runner = new Function('console', `"use strict";\n${codeStr}`);
-      const result = runner(customConsole);
-      const timeMs = Math.max(1, Math.round(performance.now() - startTime));
-      let out = logs.join('\n');
-      if (!out && result !== undefined) {
-        out = String(result);
-      }
-      return {
-        success: true,
-        output: out || '✅ Code executed successfully (no output)',
-        error: null,
-        execution_time_ms: timeMs,
-        language: 'javascript'
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        output: logs.join('\n'),
-        error: err.message || String(err),
-        execution_time_ms: Math.max(1, Math.round(performance.now() - startTime)),
-        language: 'javascript'
-      };
-    }
-  }
-
-  if (normalizedLang === 'python' || normalizedLang === 'py') {
-    const logs: string[] = [];
-    try {
-      const lines = codeStr.split('\n');
-      for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (!line || line.startsWith('#')) continue;
-
-        const printMatch = line.match(/^print\s*\((.*)\)\s*$/);
-        if (printMatch) {
-          const inner = printMatch[1].trim();
-          if ((inner.startsWith('"') && inner.endsWith('"')) || (inner.startsWith("'") && inner.endsWith("'"))) {
-            logs.push(inner.slice(1, -1));
-          } else {
-            try {
-              const val = new Function(`return (${inner})`)();
-              logs.push(String(val));
-            } catch {
-              logs.push(inner);
-            }
-          }
-        }
-      }
-
-      const timeMs = Math.max(1, Math.round(performance.now() - startTime));
-      return {
-        success: true,
-        output: logs.length > 0 ? logs.join('\n') : '✅ Program executed successfully (no print output).',
-        error: null,
-        execution_time_ms: timeMs,
-        language: 'python'
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        output: '',
-        error: err.message || 'Python execution error',
-        execution_time_ms: Math.max(1, Math.round(performance.now() - startTime)),
-        language: 'python'
-      };
-    }
-  }
-
-  if (normalizedLang === 'sql') {
-    const timeMs = Math.max(1, Math.round(performance.now() - startTime));
-    const upper = codeStr.toUpperCase();
-    if (upper.includes('SELECT')) {
-      return {
-        success: true,
-        output: `+----+----------------------+---------+\n| id | name                 | role    |\n+----+----------------------+---------+\n|  1 | Alice Johnson        | Admin   |\n|  2 | Bob Smith            | Student |\n|  3 | Charlie Lee          | Student |\n+----+----------------------+---------+\n3 rows in set (${timeMs} ms)`,
-        error: null,
-        execution_time_ms: timeMs,
-        language: 'sql'
-      };
-    }
-    return {
-      success: true,
-      output: `Query OK, 1 row affected (${timeMs} ms)`,
-      error: null,
-      execution_time_ms: timeMs,
-      language: 'sql'
-    };
-  }
-
-  return {
-    success: true,
-    output: `✅ Executed ${lang} code.`,
-    error: null,
-    execution_time_ms: Math.max(1, Math.round(performance.now() - startTime)),
-    language: lang
-  };
+int main() {
+    cout << "Code It Out C++20 STL & Systems Sandbox Ready!" << endl;
+    cout << "Binary Search Time Complexity: O(log N) | Space: O(1)" << endl;
+    return 0;
+}`,
+  bash: `# Interactive Git & GitHub CLI Terminal Sandbox
+$ git init
+$ git switch -c feat/oauth-login
+$ git add src/auth.ts tests/auth.test.ts
+$ git commit -m "feat(auth): enforce strict token expiration check"
+$ git log --oneline --graph`
 };
 
-const CodePlayground: React.FC<Props> = ({ initialCode, language }) => {
-  const [code, setCode] = useState(initialCode || '# Write your code here\nprint("Hello, World!")');
+const CodePlayground: React.FC<Props> = ({ initialCode, language, courseId, isFullscreen = false }) => {
+  const suitedLanguages = useMemo(
+    () => getSuitedLanguagesForCourse(courseId, language),
+    [courseId, language]
+  );
+
+  const [selectedLang, setSelectedLang] = useState<'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash'>(() =>
+    normalizeSandboxLang(language)
+  );
+  const [code, setCode] = useState<string>(initialCode || LANGUAGE_TEMPLATES.python);
   const [output, setOutput] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [isRunning, setIsRunning] = useState(false);
+  const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
-  const [history, setHistory] = useState<ExecutionHistory[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const editorRef = useRef<any>(null);
 
-  // Map language names for Monaco and API
+  useEffect(() => {
+    const normalized = normalizeSandboxLang(language);
+    const allowedIds = suitedLanguages.map((l) => l.id);
+    const activeLang = allowedIds.includes(normalized) ? normalized : allowedIds[0];
+
+    setSelectedLang(activeLang);
+    const nextCode = initialCode || LANGUAGE_TEMPLATES[activeLang] || LANGUAGE_TEMPLATES.python;
+    setCode(nextCode);
+    setOutput('');
+    setError('');
+    setExecutionTime(null);
+    if (activeLang === 'html') {
+      setHtmlPreview(nextCode);
+    } else {
+      setHtmlPreview(null);
+    }
+  }, [initialCode, language, suitedLanguages]);
+
   const getMonacoLanguage = (lang: string): string => {
-    const langMap: Record<string, string> = {
-      'python': 'python',
-      'py': 'python',
-      'javascript': 'javascript',
-      'js': 'javascript',
-      'sql': 'sql',
-      'java': 'java'
+    const map: Record<string, string> = {
+      python: 'python',
+      py: 'python',
+      javascript: 'javascript',
+      js: 'javascript',
+      sql: 'sql',
+      html: 'html',
+      css: 'css',
+      cpp: 'cpp',
+      java: 'java',
+      bash: 'shell',
+      sh: 'shell',
+      git: 'shell',
     };
-    return langMap[lang.toLowerCase()] || 'plaintext';
-  };
-
-  const getApiLanguage = (lang: string): string => {
-    const langMap: Record<string, string> = {
-      'python': 'python',
-      'py': 'python',
-      'javascript': 'javascript',
-      'js': 'javascript',
-      'sql': 'sql'
-    };
-    return langMap[lang.toLowerCase()] || 'python';
-  };
-
-  const handleEditorMount: OnMount = (editor) => {
-    editorRef.current = editor;
-    editor.focus();
+    return map[lang.toLowerCase()] || 'javascript';
   };
 
   const executeCode = useCallback(async () => {
     if (!code.trim()) {
-      setError('Please enter some code to execute');
+      setError('Please enter code before running.');
       return;
     }
 
     setIsRunning(true);
     setOutput('');
     setError('');
-    setExecutionTime(null);
 
     try {
-      let result: ExecutionResult | null = null;
+      let result: SnippetExecutionResult | null = null;
 
-      if (API_BASE_URL) {
+      if (selectedLang === 'python' || selectedLang === 'javascript') {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/execute/`, {
+          const resp = await fetch('/api/execute', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              code: code,
-              language: getApiLanguage(language)
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, language: selectedLang }),
           });
-
-          if (response.ok) {
-            result = await response.json();
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && typeof data.success === 'boolean') {
+              result = data;
+            }
           }
-        } catch (fetchErr) {
-          console.warn('Backend execution unavailable, using client-side runner:', fetchErr);
+        } catch {
+          // Fallback to deterministic browser runner
         }
       }
 
-      // If backend was not configured or not reachable, use client runner
       if (!result) {
-        result = executeInBrowser(code, language);
+        result = executeSnippet(code, selectedLang);
       }
 
       setExecutionTime(result.execution_time_ms);
+      if (result.htmlPreview) {
+        setHtmlPreview(result.htmlPreview);
+      } else {
+        setHtmlPreview(null);
+      }
 
       if (result.success) {
-        setOutput(result.output || '✅ Code executed successfully (no output)');
-        setError(result.error || '');
+        setOutput(result.output || 'Program finished (0 errors)');
+        setError('');
       } else {
         setOutput(result.output || '');
-        setError(result.error || 'Execution failed');
+        setError(result.error || 'Execution error');
       }
 
       const user = db.getCurrentUser();
       db.logSecurityEvent({
         type: 'EXECUTION',
-        details: `Executed ${language} code. Success: ${result.success}`,
-        userId: user?.id
+        details: `Executed ${selectedLang} snippet`,
+        userId: user?.id,
       });
-
-      // Add to history
-      setHistory(prev => [{
-        id: Date.now(),
-        timestamp: new Date(),
-        success: result.success,
-        output: result.output || result.error || '',
-        executionTime: result.execution_time_ms
-      }, ...prev.slice(0, 9)]); // Keep last 10 executions
-
     } catch (err: any) {
-      console.error('Execution error:', err);
       setError(err.message || 'Execution error');
-      setOutput('');
     } finally {
       setIsRunning(false);
     }
-  }, [code, language]);
+  }, [code, selectedLang]);
 
-  const handleRun = () => {
-    executeCode();
-  };
-
-  const handleClear = () => {
+  const handleLanguageSwitch = (newLang: 'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash') => {
+    setSelectedLang(newLang);
+    const nativeNorm = normalizeSandboxLang(language);
+    const nextCode =
+      newLang === nativeNorm && initialCode
+        ? initialCode
+        : LANGUAGE_TEMPLATES[newLang] || LANGUAGE_TEMPLATES.python;
+    setCode(nextCode);
     setOutput('');
     setError('');
     setExecutionTime(null);
+    setHtmlPreview(newLang === 'html' ? nextCode : null);
   };
 
   const handleReset = () => {
-    setCode(initialCode || '# Write your code here\nprint("Hello, World!")');
+    const nativeNorm = normalizeSandboxLang(language);
+    const resetTarget =
+      initialCode && selectedLang === nativeNorm
+        ? initialCode
+        : LANGUAGE_TEMPLATES[selectedLang] || LANGUAGE_TEMPLATES.python;
+    setCode(resetTarget);
     setOutput('');
     setError('');
     setExecutionTime(null);
+    if (selectedLang === 'html') setHtmlPreview(resetTarget);
   };
 
-  const handleEditorChange = (value: string | undefined) => {
-    setCode(value || '');
-  };
-
-  // Keyboard shortcut: Ctrl/Cmd + Enter to run
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      handleRun();
-    }
-  };
+  const activeMeta = ALL_LANGUAGE_META[selectedLang] || ALL_LANGUAGE_META.python;
 
   return (
-    <div
-      className="rounded-xl overflow-hidden border border-gray-700 bg-[#0d1117] shadow-2xl mt-8"
-      onKeyDown={handleKeyDown}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-gray-700">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
+    <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#0b101b] shadow-xl">
+      {/* Course-Suited Runtime Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-[#121b2e] border-b border-slate-800">
+        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+          {suitedLanguages.length === 1 ? (
+            /* Single Suited Language -> Authoritative Locked Runtime Badge */
             <div
-              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 cursor-pointer transition-colors"
-              onClick={handleReset}
-              title="Reset Code"
-            ></div>
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#0b101b] border border-emerald-500/40 text-xs font-mono font-bold text-emerald-400"
+              title="Dedicated runtime environment tailored to this course track"
+            >
+              <span>{suitedLanguages[0].runtimeBadge}</span>
+            </div>
+          ) : (
+            /* 2-3 Suited Languages -> Clean Segmented Course-Suited Switcher */
             <div
-              className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 cursor-pointer transition-colors"
-              onClick={handleClear}
-              title="Clear Output"
-            ></div>
-            <div
-              className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 cursor-pointer transition-colors"
-              onClick={handleRun}
-              title="Run Code"
-            ></div>
-          </div>
-          <span className="ml-3 text-xs font-mono text-gray-400 uppercase flex items-center gap-2">
-            {language} Playground
-            <span className="px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400 text-[10px] border border-blue-800/50">
-              Docker Sandbox
-            </span>
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
+              role="group"
+              aria-label="Course suited programming languages"
+              className="inline-flex items-center gap-1 p-1 rounded-lg bg-[#090e19] border border-slate-800"
+            >
+              {suitedLanguages.map((langOpt) => {
+                const isSelected = selectedLang === langOpt.id;
+                return (
+                  <button
+                    key={langOpt.id}
+                    type="button"
+                    onClick={() => handleLanguageSwitch(langOpt.id)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold transition-colors whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    }`}
+                  >
+                    {langOpt.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {executionTime !== null && (
-            <span className="text-xs text-gray-500 font-mono">
-              {executionTime}ms
+            <span className="text-[11px] text-emerald-400 font-mono tabular-nums whitespace-nowrap px-1.5">
+              · {executionTime}ms
             </span>
           )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={() => setShowHistory(!showHistory)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${showHistory
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700'
-              }`}
-            title="Execution History"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
-          <button
+            type="button"
             onClick={handleReset}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
+            className="min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors whitespace-nowrap"
           >
             Reset
           </button>
           <button
-            onClick={handleRun}
+            type="button"
+            onClick={executeCode}
             disabled={isRunning}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${isRunning
-                ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-500/20 hover:shadow-green-500/40'
-              }`}
+            className="min-h-[34px] px-3.5 py-1 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50 whitespace-nowrap"
           >
-            {isRunning ? (
-              <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-            )}
-            {isRunning ? 'Running...' : 'Run Code'}
+            <span>{isRunning ? 'Running...' : 'Run Code ▶'}</span>
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[350px]">
-        {/* Monaco Editor */}
-        <div className="border-r border-gray-700 relative">
-          <Editor
-            height="350px"
-            language={getMonacoLanguage(language)}
-            value={code}
-            onChange={handleEditorChange}
-            onMount={handleEditorMount}
-            theme="vs-dark"
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              fontFamily: "'Fira Code', 'Consolas', monospace",
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              wordWrap: 'on',
-              padding: { top: 16, bottom: 16 },
-              renderLineHighlight: 'all',
-              cursorBlinking: 'smooth',
-              cursorSmoothCaretAnimation: 'on',
-              smoothScrolling: true,
-              tabSize: 4,
-              insertSpaces: true,
-              folding: true,
-              bracketPairColorization: { enabled: true },
-            }}
-          />
+      {/* Code Input + Output (Stacked in Docked Mode, Side-by-Side Split in Fullscreen Mode) */}
+      <div className={isFullscreen ? 'grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-800' : 'flex flex-col'}>
+        {/* Code Input (Textarea fallback + Monaco Editor) */}
+        <div className={`grid grid-cols-1 ${isFullscreen ? '' : 'border-b border-slate-800'} bg-[#1e1e1e]`}>
+          <div className={`relative ${isFullscreen ? 'min-h-[420px]' : 'min-h-[250px]'} pt-1`}>
+            <Editor
+              height={isFullscreen ? '420px' : '250px'}
+              language={getMonacoLanguage(selectedLang)}
+              value={code}
+              onChange={(val) => setCode(val || '')}
+              theme="vs-dark"
+              loading={
+                <textarea
+                  aria-label="Code editor"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className={`w-full ${isFullscreen ? 'h-[420px]' : 'h-[250px]'} bg-[#0b101b] text-slate-100 font-mono text-xs p-4 focus:outline-none resize-none`}
+                />
+              }
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                lineHeight: 21,
+                fontFamily: "'JetBrains Mono', monospace",
+                lineNumbers: 'on',
+                lineNumbersMinChars: 3,
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                wordWrap: 'on',
+                padding: { top: 14, bottom: 14 },
+                tabSize: 2,
+                fixedOverflowWidgets: true,
+              }}
+            />
+          </div>
         </div>
 
-        {/* Console/Output */}
-        <div className="bg-[#0a0d12] p-4 font-mono text-sm overflow-y-auto min-h-[350px] max-h-[350px] flex flex-col">
-          <div className="flex items-center justify-between text-gray-500 text-xs mb-3 border-b border-gray-800 pb-2">
-            <span className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></span>
-              {isRunning ? 'EXECUTING...' : 'TERMINAL'}
+        {/* Output / Live HTML Preview */}
+        <div className={`bg-[#080c14] p-4 font-mono text-xs ${isFullscreen ? 'min-h-[420px] max-h-[430px]' : 'min-h-[145px] max-h-[280px]'} overflow-y-auto`}>
+          <div className="flex items-center justify-between text-slate-400 text-[11px] mb-2 pb-1.5 border-b border-slate-800/80">
+            <span className="font-semibold uppercase tracking-wider text-slate-300">
+              {selectedLang === 'html'
+                ? 'Live Browser DOM Render & Output'
+                : `${activeMeta.label} Standard Output (stdout)`}
             </span>
             {(output || error) && (
-              <button onClick={handleClear} className="text-gray-600 hover:text-gray-400 transition-colors">
-                Clear
+              <button
+                type="button"
+                onClick={() => {
+                  setOutput('');
+                  setError('');
+                }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                Clear Output
               </button>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto">
-            {error && (
-              <pre className="whitespace-pre-wrap text-red-400 mb-2">
-                ❌ {error}
-              </pre>
-            )}
-            {output && (
-              <pre className={`whitespace-pre-wrap ${error ? 'text-gray-400' : 'text-green-400'}`}>
-                {output}
-              </pre>
-            )}
-            {!output && !error && !isRunning && (
-              <div className="text-gray-600 italic flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Press <kbd className="bg-gray-800 px-1.5 py-0.5 rounded text-xs mx-1">Ctrl+Enter</kbd> or click "Run Code"
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* History Panel */}
-      {showHistory && history.length > 0 && (
-        <div className="bg-[#0a0d12] border-t border-gray-800 p-4 max-h-40 overflow-y-auto">
-          <div className="text-xs text-gray-500 mb-2 font-semibold">EXECUTION HISTORY</div>
-          <div className="space-y-1">
-            {history.map(item => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between text-xs p-2 rounded bg-gray-900/50 hover:bg-gray-800/50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${item.success ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                  <span className="text-gray-400 font-mono">
-                    {item.timestamp.toLocaleTimeString()}
-                  </span>
-                  <span className="text-gray-500 truncate max-w-[200px]">
-                    {item.output.split('\n')[0] || 'No output'}
-                  </span>
-                </div>
-                <span className="text-gray-600 font-mono">
-                  {item.executionTime}ms
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+          {htmlPreview && (
+            <div
+              className="mb-3 p-3.5 rounded-xl bg-slate-900/75 border border-slate-800 font-sans"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlPreview) }}
+            />
+          )}
 
-      {/* Footer Tips */}
-      <div className="bg-[#161b22] border-t border-gray-700 px-4 py-2 text-xs text-gray-500 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <span>💡 <kbd className="bg-gray-800 px-1 rounded">Ctrl+Enter</kbd> to run</span>
-          <span>🟢 Dots: <span className="text-red-400">Reset</span> | <span className="text-yellow-400">Clear</span> | <span className="text-green-400">Run</span></span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-600">Powered by</span>
-          <span className="flex items-center gap-1 text-blue-400">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.186m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.186.186 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.185-.186h-2.12a.186.186 0 00-.185.185v1.888c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288z" />
-            </svg>
-            Docker
-          </span>
+          {error && (
+            <pre className="whitespace-pre-wrap text-red-400 mb-2 leading-relaxed">
+              Error: {error}
+            </pre>
+          )}
+
+          {output && (
+            <pre className="whitespace-pre-wrap text-emerald-300 leading-relaxed">
+              {output}
+            </pre>
+          )}
+
+          {!output && !error && !htmlPreview && (
+            <div className="text-slate-400 py-4 leading-relaxed">
+              Click <strong className="text-emerald-400">Run Code ▶</strong> above to execute this{' '}
+              <span className="text-white font-semibold">{activeMeta.label}</span> program in real time.
+            </div>
+          )}
         </div>
       </div>
     </div>
