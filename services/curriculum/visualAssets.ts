@@ -97,7 +97,7 @@ export const HERO_ACADEMY_VISUAL_URI = encodeSvgDataUri(`
     <text x="26" y="258" fill="#93c5fd" font-family="monospace" font-size="9.5">N=10^6 -&gt; 20 steps (0.02 ms)</text>
     <text x="26" y="276" fill="#f8fafc" font-family="monospace" font-size="9.5">Stack: 20 frames (1.2 KB RAM)</text>
     <rect x="26" y="290" width="184" height="4" rx="2" fill="url(#emeraldBar)" />
-    <text x="26" y="314" fill="#fbbf24" font-family="monospace" font-size="10">18 Tracks · 452 Deep Modules</text>
+    <text x="26" y="314" fill="#fbbf24" font-family="monospace" font-size="10">19 Tracks · 477 Deep Modules</text>
     <text x="26" y="334" fill="#10b981" font-family="monospace" font-size="10" font-weight="bold">✓ POPUP IDE &amp; SANDBOX READY</text>
   </g>
 
@@ -132,7 +132,7 @@ export const HERO_ACADEMY_VISUAL_URI = encodeSvgDataUri(`
 
     <rect x="16" y="278" width="200" height="80" rx="8" fill="#081120" stroke="#10b981" stroke-width="1.5" />
     <text x="26" y="304" fill="#10b981" font-family="monospace" font-size="11" font-weight="bold">CODE IT OUT ACADEMY</text>
-    <text x="26" y="324" fill="#e2e8f0" font-family="monospace" font-size="10">452 Interactive Modules</text>
+    <text x="26" y="324" fill="#e2e8f0" font-family="monospace" font-size="10">477 Interactive Modules</text>
     <text x="26" y="342" fill="#94a3b8" font-family="monospace" font-size="9">Popup Code Lab + Fullscreen IDE</text>
   </g>
 </svg>
@@ -242,13 +242,24 @@ const TRACK_PALETTES: Record<string, TrackVisualPalette> = {
   'c11': {
     primary: '#ec4899',
     secondary: '#f472b6',
-    badge: 'RAII MEMORY & JVM JIT',
-    diagramLabel: 'vtable Dispatch · Smart Pointers · GC',
-    nodes: ['Stack & RAII', 'vptr -> vtable', 'JVM G1GC/JIT'],
-    subLabels: ['Zero Leak', 'Dynamic Call', 'Escape Analysis'],
-    memoryCells: ['vptr*', 'vtable[0]', 'unique_p', 'align64'],
-    timeBadge: 'Zero-Overhead RAII',
-    spaceBadge: 'vtable & C2 JIT'
+    badge: 'MODERN C++20/23 & RAII',
+    diagramLabel: 'RAII Lifetimes · vtable Dispatch · Lock-Free SIMD',
+    nodes: ['Stack & RAII', 'vptr -> vtable', 'SIMD & Atomics'],
+    subLabels: ['Zero Leak', 'Dynamic Call', 'alignas(64)'],
+    memoryCells: ['vptr*', 'vtable[0]', 'unique_ptr', 'alignas64'],
+    timeBadge: 'Zero-Overhead C++20',
+    spaceBadge: 'RAII & L1 Cache'
+  },
+  'c-java': {
+    primary: '#f97316',
+    secondary: '#fb923c',
+    badge: 'JAVA 21 LTS & HOTSPOT JVM',
+    diagramLabel: 'Bytecode -> Tiered C2 JIT -> Generational ZGC -> Loom',
+    nodes: ['ClassLoader', 'VirtualThread', 'Gen ZGC Heap'],
+    subLabels: ['Bytecode Verify', 'Carrier Pool', '< 0.5ms Pause'],
+    memoryCells: ['Eden_GC', 'VThread', 'ZGC_Bar', 'JIT_C2'],
+    timeBadge: 'Java 21 Loom + ZGC',
+    spaceBadge: 'HotSpot JVM Heap'
   },
   'c3': {
     primary: '#f59e0b',
@@ -345,10 +356,70 @@ const TRACK_PALETTES: Record<string, TrackVisualPalette> = {
     diagramLabel: 'HCL Config -> State Lock & Plan DAG -> OPA Gate -> Argo Rollout',
     nodes: ['terraform plan', 'OPA & Checkov', 'ArgoCD Canary'],
     subLabels: ['S3 State Lock', 'OIDC Federated', 'SLSA Provenance'],
-    memoryCells: ['tfplan', 'Lock_S3', 'OIDC_JWT', 'Canary_100%'],
+    memoryCells: ['tfplan', 'Lock_S3', 'OIDC_JWT', 'Canary_OK'],
     timeBadge: 'Declarative IaC DAG',
     spaceBadge: 'Zero-Drift GitOps'
   }
+};
+
+/**
+ * Formats any code construct or label so it fits cleanly inside an SVG node box
+ * of `maxChars` characters WITHOUT stripping `<` or `>` (escaped safely via escapeXml).
+ */
+export const formatSvgBoxToken = (raw: string, maxChars: number = 15): string => {
+  let s = String(raw || '').trim().replace(/\s+/g, ' ');
+  if (!s) return 'Invariant';
+
+  // Remove trailing semicolon
+  s = s.replace(/;$/, '').trim();
+
+  // If longer than maxChars and contains '=', keep the left-hand declaration
+  if (s.length > maxChars && s.includes('=')) {
+    const lhs = s.split('=')[0].trim();
+    if (lhs.length >= 3) s = lhs;
+  }
+
+  // If still longer than maxChars and contains '{', keep before '{'
+  if (s.length > maxChars && s.includes('{')) {
+    const beforeBrace = s.split('{')[0].trim();
+    if (beforeBrace.length >= 3) s = beforeBrace;
+  }
+
+  // If still longer than maxChars and has template parameters like unordered_map<string, int> mp
+  if (s.length > maxChars) {
+    // Drop trailing variable name after '>' (e.g. "vector<int> v" -> "vector<int>")
+    const afterAngle = s.match(/^([a-zA-Z0-9_:]+<[^>]+>)\s+[a-zA-Z0-9_]+$/);
+    if (afterAngle && afterAngle[1].length <= maxChars) {
+      s = afterAngle[1];
+    }
+  }
+
+  // If still longer than maxChars and is a long generic like unordered_map<string, int>
+  if (s.length > maxChars && s.includes('<')) {
+    const baseName = s.split('<')[0].trim();
+    if (baseName.length >= 4 && baseName.length + 3 <= maxChars) {
+      s = `${baseName}<T>`;
+    } else if (baseName.length >= 4 && baseName.length <= maxChars) {
+      s = baseName;
+    }
+  }
+
+  // If still longer than maxChars and is a function call like std::lower_bound(v.begin(), v.end(), x)
+  if (s.length > maxChars && s.includes('(')) {
+    const fnName = s.split('(')[0].trim();
+    if (fnName.length >= 3 && fnName.length + 2 <= maxChars) {
+      s = `${fnName}()`;
+    } else if (fnName.length >= 3 && fnName.length <= maxChars) {
+      s = fnName;
+    }
+  }
+
+  // Final strict character bound
+  if (s.length > maxChars) {
+    s = s.slice(0, maxChars - 1).trim() + '…';
+  }
+
+  return escapeXml(s);
 };
 
 const trackUriCache: Record<string, string> = {};
@@ -357,19 +428,19 @@ export const getTrackVisualDataUri = (courseId: string): string => {
   if (trackUriCache[courseId]) return trackUriCache[courseId];
   const cfg = TRACK_PALETTES[courseId] || TRACK_PALETTES['c4'];
   const safeId = escapeXml(courseId.replace(/[^a-zA-Z0-9_-]/g, ''));
-  const badge = escapeXml(cfg.badge);
-  const diagramLabel = escapeXml(cfg.diagramLabel);
-  const n0 = escapeXml(cfg.nodes[0]);
-  const n1 = escapeXml(cfg.nodes[1]);
-  const n2 = escapeXml(cfg.nodes[2]);
-  const s0 = escapeXml(cfg.subLabels[0]);
-  const s1 = escapeXml(cfg.subLabels[1]);
-  const s2 = escapeXml(cfg.subLabels[2]);
-  const c0 = escapeXml(cfg.memoryCells[0]);
-  const c1 = escapeXml(cfg.memoryCells[1]);
-  const c2 = escapeXml(cfg.memoryCells[2]);
-  const c3 = escapeXml(cfg.memoryCells[3]);
-  const tBadge = escapeXml(cfg.timeBadge);
+  const badge = formatSvgBoxToken(cfg.badge, 28);
+  const diagramLabel = formatSvgBoxToken(cfg.diagramLabel, 54);
+  const n0 = formatSvgBoxToken(cfg.nodes[0], 17);
+  const n1 = formatSvgBoxToken(cfg.nodes[1], 17);
+  const n2 = formatSvgBoxToken(cfg.nodes[2], 16);
+  const s0 = formatSvgBoxToken(cfg.subLabels[0], 19);
+  const s1 = formatSvgBoxToken(cfg.subLabels[1], 19);
+  const s2 = formatSvgBoxToken(cfg.subLabels[2], 18);
+  const c0 = formatSvgBoxToken(cfg.memoryCells[0], 12);
+  const c1 = formatSvgBoxToken(cfg.memoryCells[1], 12);
+  const c2 = formatSvgBoxToken(cfg.memoryCells[2], 12);
+  const c3 = formatSvgBoxToken(cfg.memoryCells[3], 14);
+  const tBadge = formatSvgBoxToken(cfg.timeBadge, 20);
 
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" width="640" height="240">
@@ -389,17 +460,17 @@ export const getTrackVisualDataUri = (courseId: string): string => {
   <circle cx="85" cy="195" r="85" fill="${cfg.secondary}" fill-opacity="0.09" />
 
   <!-- Top Architecture Header Bar -->
-  <rect x="20" y="14" width="256" height="24" rx="6" fill="${cfg.primary}" fill-opacity="0.18" stroke="${cfg.primary}" stroke-width="1.2" />
-  <text x="30" y="30" fill="${cfg.secondary}" font-family="monospace" font-size="10.5" font-weight="bold">${badge}</text>
-  <rect x="476" y="14" width="144" height="24" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
-  <text x="548" y="30" text-anchor="middle" fill="#34d399" font-family="monospace" font-size="10" font-weight="bold">${tBadge}</text>
+  <rect x="20" y="14" width="266" height="24" rx="6" fill="${cfg.primary}" fill-opacity="0.18" stroke="${cfg.primary}" stroke-width="1.2" />
+  <text x="30" y="30" fill="${cfg.secondary}" font-family="monospace" font-size="10" font-weight="bold">${badge}</text>
+  <rect x="466" y="14" width="154" height="24" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
+  <text x="543" y="30" text-anchor="middle" fill="#34d399" font-family="monospace" font-size="9.5" font-weight="bold">${tBadge}</text>
 
   <!-- 3 Architecture Pipeline Nodes -->
   <g transform="translate(20, 50)">
     <rect x="0" y="0" width="176" height="84" rx="10" fill="#101b30" stroke="${cfg.primary}" stroke-width="1.6" />
     <rect x="12" y="10" width="68" height="16" rx="4" fill="${cfg.primary}" fill-opacity="0.18" />
     <text x="18" y="21" fill="${cfg.secondary}" font-family="monospace" font-size="9" font-weight="bold">STAGE 01</text>
-    <text x="14" y="46" fill="#f8fafc" font-family="monospace" font-size="13" font-weight="bold">${n0}</text>
+    <text x="14" y="46" fill="#f8fafc" font-family="monospace" font-size="12" font-weight="bold">${n0}</text>
     <text x="14" y="68" fill="#94a3b8" font-family="monospace" font-size="10">${s0}</text>
 
     <line x1="176" y1="42" x2="210" y2="42" stroke="${cfg.primary}" stroke-width="2" stroke-dasharray="4 3" />
@@ -408,7 +479,7 @@ export const getTrackVisualDataUri = (courseId: string): string => {
     <rect x="217" y="0" width="176" height="84" rx="10" fill="#101b30" stroke="${cfg.secondary}" stroke-width="1.6" />
     <rect x="229" y="10" width="68" height="16" rx="4" fill="${cfg.secondary}" fill-opacity="0.18" />
     <text x="235" y="21" fill="${cfg.secondary}" font-family="monospace" font-size="9" font-weight="bold">STAGE 02</text>
-    <text x="231" y="46" fill="#f8fafc" font-family="monospace" font-size="13" font-weight="bold">${n1}</text>
+    <text x="231" y="46" fill="#f8fafc" font-family="monospace" font-size="12" font-weight="bold">${n1}</text>
     <text x="231" y="68" fill="#cbd5e1" font-family="monospace" font-size="10">${s1}</text>
 
     <line x1="393" y1="42" x2="427" y2="42" stroke="${cfg.secondary}" stroke-width="2" stroke-dasharray="4 3" />
@@ -417,7 +488,7 @@ export const getTrackVisualDataUri = (courseId: string): string => {
     <rect x="434" y="0" width="166" height="84" rx="10" fill="#101b30" stroke="#10b981" stroke-width="1.6" />
     <rect x="446" y="10" width="68" height="16" rx="4" fill="#10b981" fill-opacity="0.18" />
     <text x="452" y="21" fill="#34d399" font-family="monospace" font-size="9" font-weight="bold">STAGE 03</text>
-    <text x="448" y="46" fill="#f8fafc" font-family="monospace" font-size="13" font-weight="bold">${n2}</text>
+    <text x="448" y="46" fill="#f8fafc" font-family="monospace" font-size="12" font-weight="bold">${n2}</text>
     <text x="448" y="68" fill="#34d399" font-family="monospace" font-size="10">${s2}</text>
   </g>
 
@@ -436,8 +507,8 @@ export const getTrackVisualDataUri = (courseId: string): string => {
   </g>
 
   <!-- Footer Strip -->
-  <text x="20" y="216" fill="#cbd5e1" font-family="monospace" font-size="11">${diagramLabel}</text>
-  <text x="620" y="216" text-anchor="end" fill="${cfg.secondary}" font-family="monospace" font-size="11" font-weight="bold">25 CHAPTERS · POPUP IDE</text>
+  <text x="20" y="216" fill="#cbd5e1" font-family="monospace" font-size="10.5">${diagramLabel}</text>
+  <text x="620" y="216" text-anchor="end" fill="${cfg.secondary}" font-family="monospace" font-size="10.5" font-weight="bold">25 CHAPTERS · POPUP IDE</text>
 </svg>`;
 
   const uri = encodeSvgDataUri(svg);
@@ -453,17 +524,23 @@ export const buildLessonArchitectureSvg = (
   keyTerms: [string, string, string]
 ): string => {
   const cfg = TRACK_PALETTES[courseId] || TRACK_PALETTES['c4'];
-  const safeTitle = escapeXml(title.replace(/[<>&"]/g, '').slice(0, 52));
-  const safeGroup = escapeXml(sectionGroup.replace(/[<>&"]/g, '').slice(0, 32).toUpperCase());
-  const t0 = escapeXml(keyTerms[0].replace(/[<>&"]/g, '').slice(0, 22));
-  const t1 = escapeXml(keyTerms[1].replace(/[<>&"]/g, '').slice(0, 22));
-  const t2 = escapeXml(keyTerms[2].replace(/[<>&"]/g, '').slice(0, 22));
-  const m0 = escapeXml(cfg.memoryCells[0]);
-  const m1 = escapeXml(cfg.memoryCells[1]);
-  const m2 = escapeXml(cfg.memoryCells[2]);
-  const m3 = escapeXml(cfg.memoryCells[3]);
-  const timeBadge = escapeXml(cfg.timeBadge);
-  const spaceBadge = escapeXml(cfg.spaceBadge);
+  const uid = `${courseId.replace(/[^a-zA-Z0-9]/g, '')}-${chapterNum}`;
+  const safeTitle = formatSvgBoxToken(title, 54);
+  const safeGroup = formatSvgBoxToken(sectionGroup.toUpperCase(), 24);
+
+  // Strict 15-character box bounds for the 146px pipeline nodes + 26-char bound for the 264px Layer A box
+  const t0Node = formatSvgBoxToken(keyTerms[0], 15);
+  const t1Node = formatSvgBoxToken(keyTerms[1], 15);
+  const t2Node = formatSvgBoxToken(keyTerms[2], 14);
+  const t0LayerA = formatSvgBoxToken(keyTerms[0], 26);
+
+  const m0 = formatSvgBoxToken(cfg.memoryCells[0], 11);
+  const m1 = formatSvgBoxToken(cfg.memoryCells[1], 11);
+  const m2 = formatSvgBoxToken(cfg.memoryCells[2], 11);
+  const m3 = formatSvgBoxToken(cfg.memoryCells[3], 13);
+  const timeBadge = formatSvgBoxToken(cfg.timeBadge, 18);
+  const spaceBadge = formatSvgBoxToken(cfg.spaceBadge, 18);
+  const layerBText = formatSvgBoxToken(`${cfg.timeBadge} · ${cfg.spaceBadge}`, 28);
 
   // ONLY render the Big-O Complexity Curves plot on the dedicated Time & Space Complexity module (ds-1: courseId === 'c4' && chapterNum === 1)
   const isComplexityModule = courseId === 'c4' && chapterNum === 1;
@@ -506,12 +583,16 @@ export const buildLessonArchitectureSvg = (
       <text x="14" y="20" fill="#34d399" font-family="monospace" font-size="9.5" font-weight="bold">3. PRODUCTION ARCHITECTURE &amp; INVARIANTS</text>
 
       <rect x="14" y="32" width="264" height="46" rx="7" fill="#111d35" stroke="${cfg.primary}" stroke-width="1.2" />
-      <text x="24" y="48" fill="${cfg.secondary}" font-family="monospace" font-size="8.5" font-weight="bold">LAYER A · CONSTRUCT &amp; SYNTAX</text>
-      <text x="24" y="66" fill="#f8fafc" font-family="monospace" font-size="10.5" font-weight="bold">${t0}</text>
+      <g clip-path="url(#clip-rbox1-${uid})">
+        <text x="24" y="48" fill="${cfg.secondary}" font-family="monospace" font-size="8.5" font-weight="bold">LAYER A · CONSTRUCT &amp; SYNTAX</text>
+        <text x="24" y="66" fill="#f8fafc" font-family="monospace" font-size="10" font-weight="bold">${t0LayerA}</text>
+      </g>
 
       <rect x="14" y="86" width="264" height="46" rx="7" fill="#111d35" stroke="${cfg.secondary}" stroke-width="1.2" />
-      <text x="24" y="102" fill="#38bdf8" font-family="monospace" font-size="8.5" font-weight="bold">LAYER B · RUNTIME ENGINE</text>
-      <text x="24" y="120" fill="#f8fafc" font-family="monospace" font-size="10.5" font-weight="bold">${timeBadge} · ${spaceBadge}</text>
+      <g clip-path="url(#clip-rbox2-${uid})">
+        <text x="24" y="102" fill="#38bdf8" font-family="monospace" font-size="8.5" font-weight="bold">LAYER B · RUNTIME ENGINE</text>
+        <text x="24" y="120" fill="#f8fafc" font-family="monospace" font-size="10" font-weight="bold">${layerBText}</text>
+      </g>
 
       <rect x="14" y="140" width="264" height="52" rx="7" fill="#064e3b" fill-opacity="0.45" stroke="#10b981" stroke-width="1.2" />
       <text x="24" y="157" fill="#6ee7b7" font-family="monospace" font-size="8.5" font-weight="bold">LAYER C · HANDS-ON VERIFICATION</text>
@@ -524,24 +605,33 @@ export const buildLessonArchitectureSvg = (
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 310" width="100%" height="310">
     <defs>
-      <linearGradient id="hdrGrad-${chapterNum}" x1="0%" y1="0%" x2="100%" y2="0%">
+      <linearGradient id="hdrGrad-${uid}" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" stop-color="#0f1b33" />
         <stop offset="100%" stop-color="#0b1324" />
       </linearGradient>
-      <pattern id="bgGrid-${chapterNum}" width="20" height="20" patternUnits="userSpaceOnUse">
+      <pattern id="bgGrid-${uid}" width="20" height="20" patternUnits="userSpaceOnUse">
         <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" stroke-width="0.6" />
       </pattern>
+      <clipPath id="clip-node1-${uid}"><rect x="18" y="32" width="138" height="72" rx="6" /></clipPath>
+      <clipPath id="clip-node2-${uid}"><rect x="195" y="32" width="138" height="72" rx="6" /></clipPath>
+      <clipPath id="clip-node3-${uid}"><rect x="372" y="32" width="134" height="72" rx="6" /></clipPath>
+      <clipPath id="clip-cell1-${uid}"><rect x="2" y="2" width="110" height="32" rx="4" /></clipPath>
+      <clipPath id="clip-cell2-${uid}"><rect x="124" y="2" width="110" height="32" rx="4" /></clipPath>
+      <clipPath id="clip-cell3-${uid}"><rect x="246" y="2" width="110" height="32" rx="4" /></clipPath>
+      <clipPath id="clip-cell4-${uid}"><rect x="368" y="2" width="126" height="32" rx="4" /></clipPath>
+      <clipPath id="clip-rbox1-${uid}"><rect x="18" y="34" width="256" height="42" rx="5" /></clipPath>
+      <clipPath id="clip-rbox2-${uid}"><rect x="18" y="88" width="256" height="42" rx="5" /></clipPath>
     </defs>
 
     <!-- Outer Blueprint Frame -->
     <rect width="860" height="310" rx="14" fill="#070c18" stroke="#1e293b" stroke-width="1.5" />
-    <rect width="860" height="310" rx="14" fill="url(#bgGrid-${chapterNum})" />
+    <rect width="860" height="310" rx="14" fill="url(#bgGrid-${uid})" />
 
     <!-- Top Header Bar -->
-    <rect x="16" y="14" width="828" height="36" rx="8" fill="url(#hdrGrad-${chapterNum})" stroke="#1e293b" stroke-width="1" />
+    <rect x="16" y="14" width="828" height="36" rx="8" fill="url(#hdrGrad-${uid})" stroke="#1e293b" stroke-width="1" />
     <circle cx="34" cy="32" r="5" fill="${cfg.primary}" />
-    <text x="48" y="36" fill="${cfg.secondary}" font-family="monospace" font-size="11.5" font-weight="bold">CH ${chapterNum} SYSTEM ARCHITECTURE BLUEPRINT · ${safeGroup}</text>
-    <text x="828" y="36" text-anchor="end" fill="#34d399" font-family="monospace" font-size="10.5" font-weight="bold">${topRightLabel}</text>
+    <text x="48" y="36" fill="${cfg.secondary}" font-family="monospace" font-size="11" font-weight="bold">CH ${chapterNum} ARCHITECTURE BLUEPRINT · ${safeGroup}</text>
+    <text x="828" y="36" text-anchor="end" fill="#34d399" font-family="monospace" font-size="10" font-weight="bold">${topRightLabel}</text>
 
     <!-- PANEL 1 (LEFT): Execution Pipeline and State Machine -->
     <g transform="translate(16, 62)">
@@ -550,27 +640,33 @@ export const buildLessonArchitectureSvg = (
 
       <!-- Node 1 -->
       <rect x="14" y="30" width="146" height="76" rx="8" fill="#111d35" stroke="${cfg.primary}" stroke-width="1.6" />
-      <text x="24" y="48" fill="${cfg.secondary}" font-family="monospace" font-size="9" font-weight="bold">STEP 01 · INPUT</text>
-      <text x="24" y="70" fill="#ffffff" font-family="monospace" font-size="11.5" font-weight="bold">${t0}</text>
-      <text x="24" y="90" fill="#94a3b8" font-family="monospace" font-size="9.5">Init &amp; Validation</text>
+      <g clip-path="url(#clip-node1-${uid})">
+        <text x="24" y="48" fill="${cfg.secondary}" font-family="monospace" font-size="9" font-weight="bold">STEP 01 · INPUT</text>
+        <text x="24" y="70" fill="#ffffff" font-family="monospace" font-size="10.5" font-weight="bold">${t0Node}</text>
+        <text x="24" y="90" fill="#94a3b8" font-family="monospace" font-size="9.5">Init &amp; Validation</text>
+      </g>
 
       <line x1="160" y1="68" x2="186" y2="68" stroke="${cfg.primary}" stroke-width="2" stroke-dasharray="4 2" />
       <polygon points="183,63 191,68 183,73" fill="${cfg.primary}" />
 
       <!-- Node 2 -->
       <rect x="191" y="30" width="146" height="76" rx="8" fill="#111d35" stroke="${cfg.secondary}" stroke-width="1.6" />
-      <text x="201" y="48" fill="#38bdf8" font-family="monospace" font-size="9" font-weight="bold">STEP 02 · TRANSFORM</text>
-      <text x="201" y="70" fill="#ffffff" font-family="monospace" font-size="11.5" font-weight="bold">${t1}</text>
-      <text x="201" y="90" fill="#cbd5e1" font-family="monospace" font-size="9.5">Core State Transition</text>
+      <g clip-path="url(#clip-node2-${uid})">
+        <text x="201" y="48" fill="#38bdf8" font-family="monospace" font-size="9" font-weight="bold">STEP 02 · TRANSFORM</text>
+        <text x="201" y="70" fill="#ffffff" font-family="monospace" font-size="10.5" font-weight="bold">${t1Node}</text>
+        <text x="201" y="90" fill="#cbd5e1" font-family="monospace" font-size="9.5">Core State Transition</text>
+      </g>
 
       <line x1="337" y1="68" x2="363" y2="68" stroke="${cfg.secondary}" stroke-width="2" stroke-dasharray="4 2" />
       <polygon points="360,63 368,68 360,73" fill="${cfg.secondary}" />
 
       <!-- Node 3 -->
       <rect x="368" y="30" width="142" height="76" rx="8" fill="#0d2329" stroke="#10b981" stroke-width="1.6" />
-      <text x="378" y="48" fill="#34d399" font-family="monospace" font-size="9" font-weight="bold">STEP 03 · OUTPUT</text>
-      <text x="378" y="70" fill="#ffffff" font-family="monospace" font-size="11.5" font-weight="bold">${t2}</text>
-      <text x="378" y="90" fill="#6ee7b7" font-family="monospace" font-size="9.5">Verified Invariant</text>
+      <g clip-path="url(#clip-node3-${uid})">
+        <text x="378" y="48" fill="#34d399" font-family="monospace" font-size="9" font-weight="bold">STEP 03 · OUTPUT</text>
+        <text x="378" y="70" fill="#ffffff" font-family="monospace" font-size="10.5" font-weight="bold">${t2Node}</text>
+        <text x="378" y="90" fill="#6ee7b7" font-family="monospace" font-size="9.5">Verified Invariant</text>
+      </g>
     </g>
 
     <!-- PANEL 2 (BOTTOM LEFT): Internal Engine State Trace -->
@@ -581,28 +677,37 @@ export const buildLessonArchitectureSvg = (
       <!-- 4 State Cells -->
       <g transform="translate(14, 27)">
         <rect x="0" y="0" width="114" height="36" rx="6" fill="#132038" stroke="${cfg.primary}" stroke-width="1.2" />
-        <text x="8" y="13" fill="#64748b" font-family="monospace" font-size="8">STAGE [01]</text>
-        <text x="8" y="28" fill="#f8fafc" font-family="monospace" font-size="10.5" font-weight="bold">${m0}</text>
+        <g clip-path="url(#clip-cell1-${uid})">
+          <text x="8" y="13" fill="#64748b" font-family="monospace" font-size="8">STAGE [01]</text>
+          <text x="8" y="28" fill="#f8fafc" font-family="monospace" font-size="10" font-weight="bold">${m0}</text>
+        </g>
 
         <rect x="122" y="0" width="114" height="36" rx="6" fill="#132038" stroke="${cfg.secondary}" stroke-width="1.2" />
-        <text x="130" y="13" fill="#38bdf8" font-family="monospace" font-size="8">STAGE [02]</text>
-        <text x="130" y="28" fill="#f8fafc" font-family="monospace" font-size="10.5" font-weight="bold">${m1}</text>
+        <g clip-path="url(#clip-cell2-${uid})">
+          <text x="130" y="13" fill="#38bdf8" font-family="monospace" font-size="8">STAGE [02]</text>
+          <text x="130" y="28" fill="#f8fafc" font-family="monospace" font-size="10" font-weight="bold">${m1}</text>
+        </g>
 
         <rect x="244" y="0" width="114" height="36" rx="6" fill="#132038" stroke="#64748b" stroke-width="1.2" />
-        <text x="252" y="13" fill="#94a3b8" font-family="monospace" font-size="8">STAGE [03]</text>
-        <text x="252" y="28" fill="#f8fafc" font-family="monospace" font-size="10.5" font-weight="bold">${m2}</text>
+        <g clip-path="url(#clip-cell3-${uid})">
+          <text x="252" y="13" fill="#94a3b8" font-family="monospace" font-size="8">STAGE [03]</text>
+          <text x="252" y="28" fill="#f8fafc" font-family="monospace" font-size="10" font-weight="bold">${m2}</text>
+        </g>
 
         <rect x="366" y="0" width="130" height="36" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1.4" />
-        <text x="374" y="13" fill="#6ee7b7" font-family="monospace" font-size="8">VERIFIED [04]</text>
-        <text x="374" y="28" fill="#ffffff" font-family="monospace" font-size="10.5" font-weight="bold">${m3}</text>
+        <g clip-path="url(#clip-cell4-${uid})">
+          <text x="374" y="13" fill="#6ee7b7" font-family="monospace" font-size="8">VERIFIED [04]</text>
+          <text x="374" y="28" fill="#ffffff" font-family="monospace" font-size="10" font-weight="bold">${m3}</text>
+        </g>
       </g>
     </g>
 
     ${rightPanelSvg}
 
     <!-- Bottom Caption Strip -->
-    <text x="20" y="292" fill="#cbd5e1" font-family="monospace" font-size="11">${safeTitle}</text>
-    <text x="840" y="292" text-anchor="end" fill="#10b981" font-family="monospace" font-size="11" font-weight="bold">✓ Verified Architecture Blueprint</text>
+    <text x="20" y="292" fill="#cbd5e1" font-family="monospace" font-size="10.5">${safeTitle}</text>
+    <text x="840" y="292" text-anchor="end" fill="#10b981" font-family="monospace" font-size="10.5" font-weight="bold">✓ Verified Architecture Blueprint</text>
   </svg>`;
 };
+
 

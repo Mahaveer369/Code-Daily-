@@ -143,14 +143,24 @@ const DOMAIN_BLUEPRINTS: Record<string, DomainBlueprint> = {
     mitigationStrategy: 'Enforce loop invariants, replace deep recursion with explicit iterative stacks, and benchmark adversarial edge cases',
   },
   c11: {
-    companies: ['Citadel Securities Execution Engine', 'Unreal Engine 5 Core', 'Netflix Zuul JVM Gateway'],
-    runtimeEngine: 'LLVM/GCC Optimizing Native Codegen (C++20) & HotSpot JVM Tiered JIT / ZGC Collector (Java 21)',
-    naivePattern: 'Raw owning pointers, virtual dispatch inside hot inner loops, and high-allocation boxed primitives',
-    prodPattern: 'RAII deterministic lifetimes, std::move / zero-copy spans, cache-aligned structs, and Java 21 Virtual Threads',
-    latencyMetric: 'Sub-microsecond P99.9 tail latency with zero stop-the-world GC pauses',
-    throughputMetric: 'Millions of messages/sec via lock-free ring buffers (LMAX Disruptor / std::atomic acquire-release)',
-    failureMode: 'Use-after-free memory corruption, false sharing across 64-byte cache lines, and ABA lock-free races',
-    mitigationStrategy: 'Enforce AddressSanitizer/UBSan in CI, align concurrent counters to alignas(64), and use smart pointers exclusively',
+    companies: ['Citadel Securities Execution Engine', 'Unreal Engine 5 Core', 'Chromium Blink & LLVM Toolchain'],
+    runtimeEngine: 'LLVM/Clang & GCC Optimizing Native Codegen (C++20/23), RAII Stack Unwinding & L1/L2 Cache-Aligned Arenas',
+    naivePattern: 'Raw owning pointers, virtual dispatch inside hot inner loops, and deep heap copies on container resize',
+    prodPattern: 'RAII deterministic lifetimes, std::move / std::span zero-copy slices, C++20 Concepts, and alignas(64) lock-free rings',
+    latencyMetric: 'Sub-microsecond P99.9 tail latency (< 450ns tick-to-trade) with zero GC pauses',
+    throughputMetric: '10M+ messages/sec via lock-free SPSC ring buffers and SIMD AVX2/AVX-512 vectorization',
+    failureMode: 'Use-after-free memory corruption, iterator invalidation, and false sharing across 64-byte cache lines',
+    mitigationStrategy: 'Enforce AddressSanitizer/UBSan in CI, align concurrent state to alignas(64), and use std::unique_ptr / std::span exclusively',
+  },
+  'c-java': {
+    companies: ['Netflix Global API Gateway', 'Apple Cloud Services (Java 21)', 'Goldman Sachs & LinkedIn JVM Core'],
+    runtimeEngine: 'OpenJDK 21 HotSpot JVM (C1/C2 Tiered JIT, Generational ZGC, Escape Analysis & Project Loom Virtual Threads)',
+    naivePattern: 'Thread-per-request OS thread pool exhaustion, boxed primitive allocations in hot streams, and unguarded shared mutable state',
+    prodPattern: 'Java 21 Virtual Threads (Executors.newVirtualThreadPerTaskExecutor), immutable Records + Sealed ADTs, and Generational ZGC',
+    latencyMetric: 'Sub-millisecond P99.9 GC pause time (< 0.4ms) with Generational ZGC across 128GB+ heaps',
+    throughputMetric: '1,000,000+ concurrent I/O requests per node via Virtual Threads and non-blocking NIO',
+    failureMode: 'Carrier-thread pinning inside synchronized blocks, OutOfMemoryError metaspace/heap leaks, and hash collision DoS',
+    mitigationStrategy: 'Replace synchronized with ReentrantLock around blocking I/O, profile with JFR/Async-Profiler, and enforce equals/hashCode contracts',
   },
   c3: {
     companies: ['AWS Firecracker MicroVMs', 'Cloudflare Linux Edge Fleet', 'Google Borg / Kubernetes Node Kernel'],
@@ -377,16 +387,32 @@ const TRACK_HOME_RESEARCH: Record<string, NonNullable<LessonContent['homeResearc
     {
       title: 'Zero-Overhead Deterministic Resource Management (RAII), Move Semantics & C++20 Concepts',
       organizationOrPaper: 'Bjarne Stroustrup, Herb Sutter & ISO C++ Standards Committee (WG21)',
-      year: '2011–2024',
-      breakthroughSummary: 'Bound resource lifetime strictly to lexical stack scope (RAII), eliminated deep heap copies via rvalue move semantics, and constrained templates at compile time.',
+      year: '2011–2025',
+      breakthroughSummary: 'Bound resource lifetime strictly to lexical stack scope (RAII), eliminated deep heap copies via rvalue move semantics, and constrained templates at compile time via Concepts.',
       productionImpact: 'Powers sub-microsecond execution engines at Citadel, Unreal Engine 5, Chrome Blink, and LLVM.'
     },
     {
-      title: 'Java Project Loom (Virtual Threads) & ZGC Sub-Millisecond Generational Garbage Collection',
-      organizationOrPaper: 'Ron Pressler, Per Liden & OpenJDK HotSpot Engineering',
-      year: '2021–2024',
-      breakthroughSummary: 'Decoupled millions of lightweight user-mode Virtual Threads from OS kernel threads and reduced multi-terabyte heap GC pauses below 0.5ms via colored pointers.',
-      productionImpact: 'Powers high-throughput payment and streaming gateways at Netflix, Apple, and LinkedIn.'
+      title: 'C++ Memory Model, Lock-Free Atomics & Cache-Oblivious Low-Latency Systems',
+      organizationOrPaper: 'Hans Boehm, Herb Sutter & CppCon Low-Latency Systems Research',
+      year: '2008–2024',
+      breakthroughSummary: 'Formalized hardware acquire/release memory ordering, wait-free SPSC ring buffers, and 64-byte cache-line alignment (`alignas(64)`).',
+      productionImpact: 'Enables sub-500ns tick-to-trade execution engines and high-FPS game physics engines.'
+    }
+  ],
+  'c-java': [
+    {
+      title: 'Java 21 Project Loom (Virtual Threads, Continuations & Structured Concurrency)',
+      organizationOrPaper: 'Ron Pressler, Alan Bateman & OpenJDK HotSpot Engineering (JEP 444)',
+      year: '2023–2025',
+      breakthroughSummary: 'Decoupled millions of lightweight user-mode Virtual Threads from OS kernel threads via stack-chunk continuations mounted on a ForkJoinPool carrier.',
+      productionImpact: 'Allows simple synchronous-style Java code to scale to 1M+ concurrent connections at Netflix, Apple, and PayPal.'
+    },
+    {
+      title: 'Generational ZGC (JEP 439) & HotSpot C2 Sea-of-Nodes Escape Analysis',
+      organizationOrPaper: 'Per Liden, Stefan Karlsson, Cliff Click & OpenJDK GC/JIT Team',
+      year: '2021–2025',
+      breakthroughSummary: 'Combined colored object pointers and load barriers with generational young/old region collection and JIT scalar replacement.',
+      productionImpact: 'Reduced multi-terabyte JVM heap pause times below 0.5 milliseconds at P99.99.'
     }
   ],
   c3: [
@@ -517,7 +543,8 @@ function buildModuleSpecificCodeSnippet(
     const isJs = courseId === 'c-js' || courseId === 'c-ts' || courseId === 'c-react';
     const isSql = courseId === 'c5';
     const isCpp = courseId === 'c11';
-    const lang = isBash ? 'bash' : isHtml ? 'html' : isJs ? 'javascript' : isSql ? 'sql' : isCpp ? 'cpp' : 'python';
+    const isJava = courseId === 'c-java';
+    const lang = isBash ? 'bash' : isHtml ? 'html' : isJs ? 'javascript' : isSql ? 'sql' : isCpp ? 'cpp' : isJava ? 'java' : 'python';
     return {
       code: fallbackStarter.trim(),
       lang

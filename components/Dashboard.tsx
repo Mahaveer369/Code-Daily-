@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { UserProfile, CourseProgress, Certificate, Bookmark } from '../types';
+import { UserProfile, CourseProgress, Certificate, Bookmark, LeaderboardEntry } from '../types';
 import { COURSES, TOTAL_MODULES_COUNT } from './LearningModule';
 import { PRACTICE_PROBLEMS } from '../services/practiceProblems';
-import { calculateLevelFromXp } from '../services/codeRunner';
+import { calculateLevelFromXp, calculateTierFromXp } from '../services/codeRunner';
 import { HERO_ACADEMY_VISUAL_URI, getTrackVisualDataUri } from '../services/curriculum/visualAssets';
 import { db } from '../services/db';
+import LearningPathTimeline from './LearningPathTimeline';
+import GlobalLeaderboard from './GlobalLeaderboard';
 
 interface DashboardProps {
   progress: UserProfile;
@@ -14,6 +16,7 @@ interface DashboardProps {
   onOpenPractice?: () => void;
   onOpenVisualizer?: () => void;
   onOpenCheatSheets?: () => void;
+  onProgressUpdated?: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -24,16 +27,30 @@ const Dashboard: React.FC<DashboardProps> = ({
   onOpenPractice,
   onOpenVisualizer,
   onOpenCheatSheets,
+  onProgressUpdated,
 }) => {
   const [userProgress, setUserProgress] = useState<CourseProgress[]>([]);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
+
+  const refreshDashboardData = () => {
+    const current = db.getCurrentUser() || progress;
+    setUserProgress(db.getUserProgress(current.id));
+    setBookmarks(db.getBookmarks(current.id));
+    setCertificates(db.getCertificates(current.id));
+    setLeaderboardEntries(db.getGlobalLeaderboard(current));
+  };
 
   useEffect(() => {
-    setUserProgress(db.getUserProgress(progress.id));
-    setBookmarks(db.getBookmarks(progress.id));
-    setCertificates(db.getCertificates(progress.id));
-  }, [progress.id, progress.xp]);
+    refreshDashboardData();
+  }, [progress.id, progress.xp, progress.tier]);
+
+  const handleCompleteNodeFromTimeline = (courseId: string, moduleId: string) => {
+    db.markModuleComplete(progress.id, courseId, moduleId, 100);
+    refreshDashboardData();
+    onProgressUpdated?.();
+  };
 
   const courseProgressMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -53,6 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const solvedCount = progress.solvedProblemIds?.length || 0;
   const levelStats = calculateLevelFromXp(progress.xp || 0);
+  const tierMeta = calculateTierFromXp(progress.xp || 0);
   const potd = PRACTICE_PROBLEMS.find((p) => p.isProblemOfTheDay) || PRACTICE_PROBLEMS[0];
 
   return (
@@ -69,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 Welcome back, {userName || progress.name}
               </h1>
               <p className="text-slate-300 text-sm leading-relaxed">
-                Master full-stack web engineering, systems programming, relational storage engines, distributed architectures, and AI transformers across <strong>{TOTAL_MODULES_COUNT} in-depth chapters</strong> (25 chapters per subject) with visual diagrams, live sandboxes, and automated coding verification.
+                Master full-stack web engineering, systems programming, relational storage engines, distributed architectures, and AI transformers across <strong>{TOTAL_MODULES_COUNT} in-depth chapters</strong> (25 chapters per subject) with interactive learning paths, live sandboxes, and global leaderboard tiers.
               </p>
             </div>
 
@@ -116,8 +134,17 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Full-Width Student Progress & Scale Telemetry Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800">
+        {/* Full-Width Student Progress, Tier Status & Scale Telemetry Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4 border-t border-slate-800">
+          <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5">
+            <div className="text-xs text-slate-400">Scholar Tier Status</div>
+            <div
+              data-testid="dashboard-hero-tier"
+              className="text-base sm:text-lg font-bold text-emerald-400 font-mono mt-0.5"
+            >
+              {tierMeta.tier}
+            </div>
+          </div>
           <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5">
             <div className="text-xs text-slate-400">Scholar Rank &amp; XP</div>
             <div className="text-base sm:text-lg font-bold text-white font-mono tabular-nums mt-0.5">
@@ -136,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               {solvedCount} / {PRACTICE_PROBLEMS.length} Solved
             </div>
           </div>
-          <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5">
+          <div className="bg-[#0b101b] border border-slate-800/90 rounded-xl p-3.5 col-span-2 sm:col-span-1">
             <div className="text-xs text-slate-400">Active Study Streak</div>
             <div className="text-base sm:text-lg font-bold text-amber-400 font-mono tabular-nums mt-0.5">
               {progress.streak} Days
@@ -144,6 +171,20 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 1. Interactive 25-Node Visual Learning Path Timeline */}
+      <LearningPathTimeline
+        userId={progress.id}
+        userProgress={userProgress}
+        onLaunchModule={(courseId, moduleId) => onCourseClick?.(courseId, moduleId)}
+        onToggleCompleteModule={handleCompleteNodeFromTimeline}
+      />
+
+      {/* 2. Global Leaderboard & Gamified XP Tier Progression */}
+      <GlobalLeaderboard
+        currentUser={{ ...progress, tier: tierMeta.tier }}
+        entries={leaderboardEntries}
+      />
 
       {/* Problem of the Day + Quick Reference Spotlight */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
@@ -195,7 +236,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* All 15 Subject Tracks (25+ Modules Each = 377 Interactive Modules) */}
+      {/* All 18 Subject Tracks (25+ Modules Each = 452 Interactive Modules) */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -203,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               All {COURSES.length} Engineering Subject Tracks ({TOTAL_MODULES_COUNT} Interactive Modules)
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Every subject contains 25 deep chapters with 3-panel architecture diagrams, time/space complexity examples, and popup code labs
+              Every subject contains 25 deep chapters with 3-panel architecture diagrams, real-world case studies, and popup code labs
             </p>
           </div>
           <button

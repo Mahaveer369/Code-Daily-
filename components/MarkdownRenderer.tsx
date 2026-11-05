@@ -204,7 +204,7 @@ const MarkdownRenderer: React.FC<Props> = ({ content, svg, onTryCode }) => {
         return (
           <code
             key={j}
-            className="bg-slate-800/95 border border-slate-700/80 px-1.5 py-0.5 rounded text-emerald-300 text-[13px] font-mono"
+            className="bg-slate-800/95 border border-slate-700/80 px-1.5 py-0.5 rounded text-emerald-300 text-[13px] font-mono break-words"
           >
             {sub.slice(1, -1)}
           </code>

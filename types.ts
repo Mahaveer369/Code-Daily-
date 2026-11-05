@@ -7,7 +7,8 @@ export enum Category {
   PYTHON = 'Python Tutorial',
   SQL = 'SQL & DBMS Tutorial',
   DSA = 'DSA A-to-Z',
-  CPP_JAVA = 'C++ & Java Tutorial',
+  CPP_JAVA = 'Modern C++20/23 Systems',
+  JAVA = 'Java 21 & JVM Engineering',
   OOPS = 'OS & Linux Tutorial',
   NETWORKS = 'Computer Networks',
   SYSTEM_DESIGN = 'System Design',
@@ -46,17 +47,47 @@ export interface ChatMessage {
 
 export type UserRole = 'admin' | 'user';
 
+export type UserTier = 'Novice' | 'Practitioner' | 'Specialist' | 'Master' | 'Architect';
+
+export interface TierMetadata {
+  tier: UserTier;
+  minXp: number;
+  maxXp: number | null;
+  nextTier: UserTier | null;
+  xpToNextTier: number;
+  tierProgressPercent: number;
+  tagline: string;
+  accentColor: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  tier: UserTier;
   streak: number;
   lastLogin: string;
   xp: number;
   level: number;
   badges: Badge[];
   solvedProblemIds?: string[];
+  primaryTrack?: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  id: string;
+  name: string;
+  email?: string;
+  tier: UserTier;
+  xp: number;
+  level: number;
+  streak: number;
+  completedModules: number;
+  solvedProblems: number;
+  primaryTrack: string;
+  isCurrentUser?: boolean;
 }
 
 export interface Badge {

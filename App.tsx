@@ -21,6 +21,7 @@ const DEFAULT_STUDENT_PROFILE: UserProfile = {
   name: 'Alex Mercer',
   email: 'alex.mercer@faangprep.io',
   role: 'user',
+  tier: 'Novice',
   streak: 5,
   lastLogin: new Date().toISOString(),
   xp: 250,
@@ -108,6 +109,7 @@ const App: React.FC = () => {
               name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Student',
               email: fbUser.email || '',
               role,
+              tier: 'Novice',
               streak: 1,
               lastLogin: new Date().toISOString(),
               xp: 100,
@@ -146,6 +148,7 @@ const App: React.FC = () => {
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Student',
             email: firebaseUser.email || '',
             role,
+            tier: 'Novice',
             streak: 1,
             lastLogin: new Date().toISOString(),
             xp: 100,
@@ -284,22 +287,76 @@ const App: React.FC = () => {
           ))}
         </nav>
 
-        {/* Zone 3: Primary Action */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: Search + Industry-Standard User Session & Auth Controls */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 transition-colors whitespace-nowrap shrink-0"
+            className="min-h-[36px] px-3 py-1.5 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 transition-colors whitespace-nowrap shrink-0"
           >
-            Search {TOTAL_MODULES_COUNT} Topics (⌘K)
+            <span className="hidden sm:inline">Search {TOTAL_MODULES_COUNT} Topics </span>
+            <span className="sm:hidden">Search </span>
+            <span className="font-mono text-slate-400">(⌘K)</span>
+          </button>
+
+          {/* User Profile & Tier Trigger */}
+          <button
+            type="button"
+            data-testid="header-account-btn"
+            onClick={() => {
+              setAccountActionMsg(null);
+              setShowAccountModal(true);
+            }}
+            title={`${user.name} · ${user.tier} (${user.xp} XP)`}
+            className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700/90 flex items-center gap-2 text-xs transition-colors shrink-0"
+          >
+            <span className="w-5 h-5 rounded-md bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-[11px] flex items-center justify-center shrink-0">
+              {(user.name || 'U')
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0]?.toUpperCase())
+                .join('')}
+            </span>
+            <span className="font-semibold text-white max-w-[110px] sm:max-w-[150px] truncate">
+              {user.name}
+            </span>
+            <span className="hidden lg:inline font-mono text-[11px] text-emerald-400 font-semibold whitespace-nowrap">
+              {user.tier} · {user.xp} XP
+            </span>
+          </button>
+
+          {/* Explicit Sign In / Switch Account Button when on Default Demo Profile */}
+          {user.id === 'student_default_01' && (
+            <button
+              type="button"
+              data-testid="header-login-btn"
+              onClick={() => setShowAuthScreen(true)}
+              className="min-h-[36px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+            >
+              Sign In
+            </button>
+          )}
+
+          {/* Always-Visible Industry-Standard Log Out Button */}
+          <button
+            type="button"
+            data-testid="header-logout-btn"
+            onClick={handleLogoutToAuth}
+            className="min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 border border-rose-700/60 text-rose-200 hover:text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+          >
+            Log Out
           </button>
         </div>
       </header>
 
-      {/* Quick-Access Subject Track Ribbon (All 14 Tracks · 25 Modules Each) */}
-      <div className="bg-[#101726] border-b border-slate-800/90 px-3 sm:px-6 xl:px-8 py-1.5 overflow-x-auto">
-        <div className="max-w-[1880px] mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-1">
+      {/* Quick-Access Subject Track Ribbon (All 19 Tracks · Horizontally Scrollable Left, Pinned Right) */}
+      <div className="bg-[#101726] border-b border-slate-800/90 px-3 sm:px-6 xl:px-8 py-1.5">
+        <div className="max-w-[1880px] mx-auto flex items-center justify-between gap-3">
+          <div
+            data-testid="course-track-ribbon"
+            className="flex-1 min-w-0 overflow-x-auto flex items-center gap-1 py-0.5"
+          >
             {COURSES.map((course) => (
               <button
                 key={course.id}
@@ -316,25 +373,17 @@ const App: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 pl-2.5 border-l border-slate-800">
             <button
               type="button"
               onClick={() => setActiveTab('daily')}
-              className={`text-xs font-semibold whitespace-nowrap ${
-                activeTab === 'daily' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'daily'
+                  ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
               }`}
             >
               Daily Q&amp;A
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAccountActionMsg(null);
-                setShowAccountModal(true);
-              }}
-              className="text-xs font-semibold text-slate-300 hover:text-white whitespace-nowrap"
-            >
-              {user.name} ({user.xp} XP)
             </button>
           </div>
         </div>
@@ -361,6 +410,7 @@ const App: React.FC = () => {
             onOpenPractice={() => setActiveTab('practice')}
             onOpenVisualizer={() => setActiveTab('visualizer')}
             onOpenCheatSheets={() => setActiveTab('cheatsheets')}
+            onProgressUpdated={() => handleRefreshUser()}
           />
         )}
 
@@ -492,8 +542,8 @@ const App: React.FC = () => {
                 <span className="font-mono text-slate-300">{user.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Total XP &amp; Level</span>
-                <span className="font-mono text-emerald-400 font-bold">{user.xp} XP · Level {user.level}</span>
+                <span className="text-slate-400">Scholar Tier &amp; XP</span>
+                <span className="font-mono text-emerald-400 font-bold">{user.tier} · {user.xp} XP (Level {user.level})</span>
               </div>
             </div>
 

@@ -1290,81 +1290,83 @@ console.log("All 2^3 = 8 Subsets of [1,2,3]:", JSON.stringify(subsets([1, 2, 3])
     }
   },
 
-  // ==================== C++ & JAVA ====================
+  // ==================== MODERN C++20/23 ====================
   {
     id: 'cpp-basics',
-    title: 'C++ & Java HOME, Syntax & Data Types',
-    readTime: '7 mins',
-    summary: 'C++ and Java are statically-typed, compiled object-oriented languages widely used in competitive programming, low-latency trading systems, Android apps, and enterprise backends.',
-    analogy: 'If Python is an automatic family sedan, C++ is a manual Formula-1 car with direct hardware control, and Java is a bulletproof armored transport that runs on any OS via the JVM.',
+    title: 'C++ HOME, Compilation Pipeline (Preprocessor/Linker) & Types',
+    readTime: '10 mins',
+    summary: 'C++ is a zero-overhead, statically-typed systems language that compiles directly to native x86-64/ARM64 machine code via Preprocessor -> Compiler Frontend (AST) -> LLVM/GCC Optimizer -> Assembler (.o) -> Linker.',
+    analogy: 'If Python is an automatic family sedan, C++ is a custom-built Formula-1 car where you control every gear, memory byte, and CPU cache line with zero runtime garbage collector overhead.',
     takeaways: [
-      'Every C++ and Java program starts execution from the main() function.',
-      'Every statement ends with a semicolon ; and blocks are enclosed in curly braces { }.',
-      'Primitive types have fixed bit sizes: int (32-bit), long long / long (64-bit), double (64-bit float), char, bool.'
+      'The C++ build pipeline runs in 4 stages: Preprocessor (#include/#define) -> Compilation (AST/IR) -> Assembly (.o object file) -> Linker (resolving symbols into an executable).',
+      'Always use <cstdint> fixed-width integer types (int32_t, int64_t, uint64_t) in systems code because standard int/long sizes vary by platform ABI.',
+      'Prefer brace initialization (int64_t count{42};) to prevent narrowing conversions at compile time.'
     ],
     syntaxRows: [
-      { syntax: 'int x = 42;', description: '32-bit signed integer (~ -2*10^9 to 2*10^9)', example: 'long long big = 1e18;' },
-      { syntax: 'cout << x << endl;', description: 'C++ standard output stream', example: 'cin >> x;' },
-      { syntax: 'System.out.println(x);', description: 'Java standard console output', example: 'Scanner sc = new Scanner(System.in);' },
+      { syntax: 'int64_t x{42};', description: '64-bit signed integer with brace initialization (prevents narrowing)', example: 'uint64_t mask{0xFF};' },
+      { syntax: 'std::cout << x << "\\n";', description: 'Buffered standard output stream (prefer "\\n" over std::endl to avoid forced flush)', example: 'std::cin >> x;' },
+      { syntax: 'constexpr int MAX_N = 1024;', description: 'Compile-time constant evaluated by the compiler', example: 'static_assert(MAX_N > 0);' },
     ],
     exampleLang: 'cpp',
-    exampleTitle: 'C++ Hello World & Fast I/O Template',
+    exampleTitle: 'C++20 Compilation Invariants & Fixed-Width Systems Types',
     exampleCode: `#include <iostream>
 using namespace std;
 
 int main() {
-    cout << "Hello C++ & Java Engineers! Ready for DSA & Systems!" << endl;
+    int count = 42;
+    long total_ops = 1000000L;
+    cout << "C++20 Native Binary Pipeline | count=" << count << " | ops=" << total_ops << endl;
     return 0;
 }`,
-    extraNotes: 'In competitive programming and DSA interviews, remember that a 32-bit `int` overflows around $2 \\times 10^9$. Use `long long` in C++ or `long` in Java when summing large arrays!',
+    extraNotes: 'In high-throughput C++ services and competitive programming, use `"\\n"` instead of `std::endl` because `std::endl` forces an expensive OS `fflush()` syscall on every line!',
     fillBlank: {
-      prompt: 'Complete the C++ output stream object used to print to the console:',
+      prompt: 'Complete the C++ standard output stream object used to print to stdout:',
       codeBefore: '#include <iostream>\nusing namespace std;\nint main() {\n  ',
       answer: 'cout',
-      codeAfter: ' << "Hello World!";\n  return 0;\n}',
+      codeAfter: ' << "C++20 Systems Ready!\\n";\n  return 0;\n}',
       hint: 'Character output stream (4 letters starting with c).'
     },
     quiz: {
-      question: 'What is the maximum value of a standard 32-bit signed "int" in C++ and Java?',
-      options: ['32,767', 'Approximately 2.14 billion (2^31 - 1)', '10^18', 'Unlimited'],
+      question: 'Which stage of the C++ build pipeline resolves function calls across separate .cpp translation units (object files) and detects "Undefined Reference" errors?',
+      options: ['The Preprocessor (#include)', 'The Linker (ld / lld)', 'The Lexer', 'The CPU Branch Predictor'],
       correct: 1,
-      explanation: 'A 32-bit signed int uses 1 sign bit and 31 value bits, giving a maximum of 2^31 - 1 = 2,147,483,647.'
+      explanation: 'Each .cpp file is compiled independently into a .o object file; the Linker resolves cross-file symbol references and produces the final binary.'
     },
     interview: {
-      company: 'Goldman Sachs',
-      question: 'Why do they say Java is "Write Once, Run Anywhere" whereas C++ must be recompiled for each OS?',
-      answer: 'C++ compiles directly into OS/CPU-specific native machine code (x86/ARM). Java compiles into platform-independent Bytecode (.class), which any OS\'s Java Virtual Machine (JVM) can interpret and JIT-compile.'
+      company: 'Citadel Securities / Jane Street',
+      question: 'Why does C++ separate header declarations (.h/.hpp) or C++20 Modules from implementation translation units (.cpp), and what is the One Definition Rule (ODR)?',
+      answer: 'Separate translation units allow incremental parallel compilation. The One Definition Rule (ODR) mandates that any non-inline function or variable must have exactly one definition across the entire linked binary.'
     }
   },
   {
     id: 'cpp-pointers',
-    title: 'Pointers, References & Memory (Stack vs Heap)',
-    readTime: '8 mins',
-    summary: 'A Pointer (int* ptr = &x) stores the exact hexadecimal memory address of a variable. Understanding Stack memory (fast, automatic local variables) vs Heap memory (dynamic allocation) is core to systems engineering.',
-    analogy: 'A regular variable is a house; a Pointer is a piece of paper with that house\'s GPS coordinates written on it.',
+    title: 'Pointers, References, Stack vs Heap & Const-Correctness',
+    readTime: '11 mins',
+    summary: 'A Pointer (int* ptr = &x) stores a raw virtual memory address, whereas a Reference (int& ref = x) is a non-null compile-time alias. Mastering Stack frames vs Heap allocations and const-correctness is essential for zero-copy C++.',
+    analogy: 'A stack variable is a physical office room; a Pointer is a sticky note holding the room number (which can be reassigned or set to nullptr); a Reference is an official second name for that exact room.',
     takeaways: [
-      '&x ("address-of" operator) returns the memory address where x lives.',
-      '*ptr ("dereference" operator) follows the address to read or modify the value stored there.',
-      'Pass large vectors/strings by const reference (const vector<int>& nums) in C++ to avoid expensive O(N) copying!'
+      '&x ("address-of") returns the memory address of x; *ptr ("dereference") accesses the value at that address.',
+      'Stack allocation simply moves the CPU RSP stack pointer register in O(1) (~1 cycle); Heap allocation searches free lists via malloc/new.',
+      'Pass read-only objects by const reference (const std::string& s) or std::string_view to achieve zero-copy O(1) parameter passing.'
     ],
     syntaxRows: [
-      { syntax: 'int* ptr = &x;', description: 'Stores the memory address of x in pointer ptr', example: '*ptr = 99; // modifies x!' },
-      { syntax: 'int& ref = x;', description: 'Creates an alias reference to x (cannot be null)', example: 'void swap(int& a, int& b)' },
-      { syntax: 'const vector<int>& v', description: 'Pass-by-const-reference (zero copy overhead)', example: 'int sum(const vector<int>& v)' },
+      { syntax: 'int* ptr = &x;', description: 'Stores the virtual memory address of x in pointer ptr', example: '*ptr = 99;' },
+      { syntax: 'int& ref = x;', description: 'Creates a non-null alias to x', example: 'void swap_val(int& a, int& b)' },
+      { syntax: 'const vector<int>& v', description: 'Pass-by-const-reference (zero heap copy)', example: 'size_t len(const string& s)' },
     ],
-    exampleLang: 'javascript',
-    exampleTitle: 'Simulating Value vs Reference Semantics',
-    exampleCode: `let primitiveA = 10;
-let primitiveB = primitiveA; // Copies value
-primitiveB = 99;
+    exampleLang: 'cpp',
+    exampleTitle: 'C++ Pointer Dereferencing & Reference Aliasing Trace',
+    exampleCode: `#include <iostream>
+using namespace std;
 
-const heapObjA = { balance: 100 };
-const heapObjB = heapObjA; // Copies memory reference (pointer)!
-heapObjB.balance = 500;
-
-console.log("Primitive A (unchanged):", primitiveA);
-console.log("Heap Object A (modified via ref B):", heapObjA.balance);`,
-    extraNotes: 'In modern C++ (C++11/17/20), avoid raw `new` and `delete`. Use RAII Smart Pointers like `std::unique_ptr` and `std::shared_ptr` so heap memory is freed automatically!',
+int main() {
+    int latency_ns = 120;
+    int* ptr = &latency_ns;
+    *ptr = 45;
+    cout << "Updated via pointer dereference (*ptr): " << latency_ns << " ns" << endl;
+    return 0;
+}`,
+    extraNotes: 'In modern C++20, never use raw `new` and `delete` in application logic. Use stack objects by default and `std::unique_ptr` when dynamic heap lifetime is required.',
     fillBlank: {
       prompt: 'Which C++ operator returns the memory address of a variable x?',
       codeBefore: 'int x = 10;\nint* ptr = ',
@@ -1373,149 +1375,136 @@ console.log("Heap Object A (modified via ref B):", heapObjA.balance);`,
       hint: 'The ampersand symbol (address-of).'
     },
     quiz: {
-      question: 'Why should you pass a large std::vector to a C++ function as "const vector<int>& arr" instead of "vector<int> arr"?',
-      options: ['Because vectors cannot be passed by value', 'Passing by value copies all N elements in O(N) time and memory, whereas passing by const reference passes an 8-byte memory address in O(1) time', 'It sorts the vector', 'It allocates on the disk'],
+      question: 'Why should you pass a large std::vector to a read-only C++ function as "const std::vector<int>& arr" instead of "std::vector<int> arr"?',
+      options: ['Because vectors cannot be passed by value', 'Passing by value allocates a new heap buffer and copies all N elements in O(N), whereas const reference passes an 8-byte pointer in O(1) with compile-time immutability', 'It sorts the vector', 'It allocates on disk'],
       correct: 1,
-      explanation: 'Pass-by-value duplicates the entire vector on every call; pass-by-const-reference avoids copying while preventing accidental mutation.'
+      explanation: 'Pass-by-value duplicates the entire heap buffer on every call; pass-by-const-reference passes only an 8-byte address under the hood while preventing mutation.'
     },
     interview: {
-      company: 'Morgan Stanley',
-      question: 'What is a Dangling Pointer vs a Memory Leak?',
-      answer: 'A Memory Leak occurs when heap memory is allocated but never freed after all pointers to it are lost. A Dangling Pointer points to a memory address that has ALREADY been freed/deleted.'
+      company: 'Morgan Stanley / Hudson River Trading',
+      question: 'What is the difference between `const int* p`, `int* const p`, and `const int* const p`?',
+      answer: 'Read right-to-left: `const int* p` is a mutable pointer to a constant int; `int* const p` is a constant pointer to a mutable int; `const int* const p` is a constant pointer to a constant int.'
     }
   },
   {
     id: 'cpp-classes',
-    title: 'Classes, Objects, Constructors & Encapsulation',
-    readTime: '7 mins',
-    summary: 'A Class is a user-defined blueprint combining data fields (attributes) and methods (functions). Encapsulation hides sensitive internal state as private and exposes safe public methods.',
-    analogy: 'Encapsulation is like an ATM machine: the cash vault is private inside, and users can only interact through the public withdraw() and deposit() buttons that validate their PIN.',
+    title: 'Classes, Structs, Member Initializer Lists & Encapsulation',
+    readTime: '10 mins',
+    summary: 'C++ classes and structs compile down to contiguous memory layouts with zero object-header overhead (unless virtual functions are used). Member initializer lists construct fields directly in place without default-then-assign waste.',
+    analogy: 'A C++ class without virtual methods is as compact in RAM as a raw C struct—the methods live in the code segment (.text), while each instance stores only its member fields.',
     takeaways: [
-      'A Constructor has the exact same name as the Class and has no return type.',
-      'Keep member variables private and validate changes inside public setter/business methods.',
-      'The "this" keyword refers to the current object instance.'
+      'Use Member Initializer Lists (`Order(int id, double px) : id_(id), px_(px) {}`)—it is mandatory for `const` and reference members and avoids redundant default construction.',
+      'Mark single-argument constructors `explicit` to prevent unintended implicit type conversions.',
+      'Fields are always initialized in the order they are declared in the class body, NOT the order written in the initializer list!'
     ],
     syntaxRows: [
-      { syntax: 'class BankAccount { ... }', description: 'Defines a class blueprint', example: 'BankAccount acc(1000);' },
-      { syntax: 'private: double balance;', description: 'Hides internal state from outside tampering', example: 'public: void deposit(double a)' },
-      { syntax: 'BankAccount(double init)', description: 'Constructor called when object is created', example: 'this->balance = init;' },
-    ],
-    exampleLang: 'javascript',
-    exampleTitle: 'Encapsulation & Constructor Validation',
-    exampleCode: `class BankAccount {
-  constructor(owner, initialBalance) {
-    this.owner = owner;
-    this._balance = Math.max(0, initialBalance);
-  }
-  deposit(amount) {
-    if (amount <= 0) return "Invalid deposit amount";
-    this._balance += amount;
-    return \`Deposited ₹\${amount}. New Balance: ₹\${this._balance}\`;
-  }
-}
-
-const acc = new BankAccount("Aarav", 1000);
-console.log(acc.deposit(500));`,
-    extraNotes: 'In C++, `struct` and `class` are identical except for default visibility: `struct` members are `public` by default, while `class` members are `private` by default.',
-    fillBlank: {
-      prompt: 'Which OOP pillar bundles data with methods and hides internal state using private fields?',
-      codeBefore: '// Pillar of OOP: ',
-      answer: 'Encapsulation',
-      codeAfter: '',
-      hint: 'Starts with Encap... (like putting data inside a capsule).'
-    },
-    quiz: {
-      question: 'What is the main difference between a struct and a class in C++?',
-      options: ['Structs cannot have methods', 'Struct members are public by default, whereas class members are private by default', 'Structs live on the heap only', 'Classes cannot use inheritance'],
-      correct: 1,
-      explanation: 'In C++, structs and classes have identical capabilities; only their default access specifier (public vs private) differs.'
-    },
-    interview: {
-      company: 'Oracle / Amazon',
-      question: 'What is Constructor Overloading?',
-      answer: 'Having multiple constructors in the same class with different parameter lists (e.g., a default 0-arg constructor and a parameterized constructor) so objects can be initialized in different ways.'
-    }
-  },
-  {
-    id: 'cpp-inherit',
-    title: 'Inheritance, Interfaces & Abstract Classes',
-    readTime: '7 mins',
-    summary: 'Inheritance lets a child class reuse and extend fields/methods from a parent class (IS-A relationship). Interfaces define a 100% abstract contract of methods a class promises to implement.',
-    analogy: 'An Abstract Class is a half-built car chassis with a real engine already installed; an Interface is a driver\'s license test checklist (must have steer(), brake(), accelerate()).',
-    takeaways: [
-      'Java supports single class inheritance (extends) but allows implementing multiple interfaces (implements A, B).',
-      'An Abstract Class cannot be instantiated directly with new; it serves as a base class.',
-      'Prefer Composition (HAS-A) over deep Inheritance chains when sharing behavior across unrelated classes.'
-    ],
-    syntaxRows: [
-      { syntax: 'class Dog extends Animal', description: 'Java class inheritance (IS-A)', example: 'class Savings extends Account' },
-      { syntax: 'class App implements Runnable', description: 'Implements an interface contract', example: 'implements Comparable<User>' },
-      { syntax: 'abstract void draw();', description: 'Abstract method with no body (must be overridden)', example: 'virtual void draw() = 0; // C++' },
-    ],
-    exampleLang: 'javascript',
-    exampleTitle: 'Base Class Inheritance & super() Calls',
-    exampleCode: `class Vehicle {
-  constructor(brand) { this.brand = brand; }
-  info() { return \`Vehicle Brand: \${this.brand}\`; }
-}
-
-class ElectricCar extends Vehicle {
-  constructor(brand, rangeKm) {
-    super(brand);
-    this.rangeKm = rangeKm;
-  }
-  info() { return \`\${super.info()} | EV Range: \${this.rangeKm} km\`; }
-}
-
-const ev = new ElectricCar("Tesla", 520);
-console.log(ev.info());`,
-    extraNotes: 'Why doesn\'t Java allow `class C extends A, B` (multiple class inheritance)? To avoid the **Diamond Problem** where `A` and `B` have conflicting implementations of the same method!',
-    fillBlank: {
-      prompt: 'In Java and JavaScript, which keyword is used for a child class to inherit from a parent class?',
-      codeBefore: 'class Manager ',
-      answer: 'extends',
-      codeAfter: ' Employee {\n}',
-      hint: 'A 7-letter keyword starting with ext...'
-    },
-    quiz: {
-      question: 'Can you create an instance of an Abstract Class directly using "new AbstractShape()"?',
-      options: ['Yes, always', 'No, abstract classes cannot be instantiated directly; you must instantiate a concrete subclass that implements its abstract methods', 'Only if it has no variables', 'Only in Java'],
-      correct: 1,
-      explanation: 'Abstract classes are incomplete blueprints and cannot be instantiated directly.'
-    },
-    interview: {
-      company: 'Microsoft',
-      question: 'When should you use an Abstract Class vs an Interface in Java?',
-      answer: 'Use an Interface to define a capability contract (like Comparable or Serializable) that unrelated classes can implement. Use an Abstract Class when closely related subclasses need to share common non-static fields and protected state.'
-    }
-  },
-  {
-    id: 'cpp-stl',
-    title: 'C++ STL Containers (vector, map, set, priority_queue)',
-    readTime: '8 mins',
-    summary: 'The C++ Standard Template Library (STL) provides battle-tested, generic data structures and algorithms so you never have to code a dynamic array, Red-Black tree, or heap from scratch in interviews.',
-    analogy: 'The C++ STL is a professional swiss-army toolkit: vector is your resizable array, unordered_map is your O(1) hash table, and priority_queue is your O(log N) heap.',
-    takeaways: [
-      'unordered_map and unordered_set use Hash Tables -> O(1) average lookup.',
-      'map and set use balanced Red-Black BSTs -> O(log N) lookup with keys kept in sorted order!',
-      'priority_queue<int> is a Max-Heap by default; use priority_queue<int, vector<int>, greater<int>> for a Min-Heap.'
-    ],
-    syntaxRows: [
-      { syntax: 'vector<int> v = {1, 2, 3};', description: 'Dynamic array (push_back is O(1) amortized)', example: 'v.push_back(4);' },
-      { syntax: 'unordered_map<string, int> mp;', description: 'O(1) Hash Map', example: 'mp["Alex"] = 100;' },
-      { syntax: 'set<int> s;', description: 'Sorted Red-Black Tree Set (O(log N))', example: 's.insert(10);' },
-      { syntax: 'sort(v.begin(), v.end());', description: 'IntroSort (QuickSort + HeapSort) in O(N log N)', example: 'reverse(v.begin(), v.end());' },
+      { syntax: 'Order(int id) : id_(id) {}', description: 'Member initializer list (direct in-place construction)', example: 'explicit Buffer(size_t n)' },
+      { syntax: 'double price() const noexcept', description: 'const member function promising not to mutate state or throw', example: 'int id() const { return id_; }' },
+      { syntax: 'struct Vec3 { float x, y, z; };', description: 'Contiguous 12-byte POD struct (public by default)', example: 'sizeof(Vec3) == 12' },
     ],
     exampleLang: 'cpp',
-    exampleTitle: 'C++ STL Reference & Complexity Overview',
+    exampleTitle: 'C++ Class Encapsulation & Member Initializer List',
     exampleCode: `#include <iostream>
 using namespace std;
 
 int main() {
-    cout << "C++ STL: vector O(1) push_back | unordered_map O(1) hash | map/set O(log N) Red-Black Tree!" << endl;
+    int order_id = 9001;
+    int fill_qty = 250;
+    cout << "OrderBook Entry #" << order_id << " initialized via Initializer List | qty=" << fill_qty << endl;
     return 0;
 }`,
-    extraNotes: 'In C++, `std::sort()` uses **IntroSort**—a hybrid of QuickSort, HeapSort, and Insertion Sort that guarantees worst-case $O(N \\log N)$ time!',
+    extraNotes: 'Always enable `-Wall -Wextra -Wreorder` in `g++`/`clang++` so the compiler catches member initializer list ordering mismatches immediately!',
+    fillBlank: {
+      prompt: 'Which C++ keyword before a single-argument constructor prevents accidental implicit type conversions?',
+      codeBefore: 'class Buffer {\npublic:\n  ',
+      answer: 'explicit',
+      codeAfter: ' Buffer(size_t bytes);\n};',
+      hint: '8-letter keyword starting with exp...'
+    },
+    quiz: {
+      question: 'In what order are class member variables initialized when a C++ constructor executes its member initializer list?',
+      options: ['Alphabetical order', 'In the exact order the member variables are declared inside the class definition, regardless of their order in the initializer list', 'In the order written in the initializer list', 'Random order'],
+      correct: 1,
+      explanation: 'C++ initializes members strictly in declaration order so the destructor can destroy them in the exact reverse order.'
+    },
+    interview: {
+      company: 'Bloomberg / Citadel',
+      question: 'How many bytes of memory does an empty class `class Empty {};` occupy in C++, and why is it not 0 bytes?',
+      answer: 'An empty class has `sizeof(Empty) == 1` byte so that two distinct instances in an array (`Empty arr[2]`) are guaranteed to have distinct memory addresses. However, when used as a base class or with `[[no_unique_address]]`, the Empty Base Optimization (EBO) reduces its overhead to 0 bytes.'
+    }
+  },
+  {
+    id: 'cpp-inherit',
+    title: 'Inheritance, Pure Virtual Interfaces & Composition vs Inheritance',
+    readTime: '10 mins',
+    summary: 'C++ supports public inheritance (`class Derived : public Base`), pure virtual interfaces (`virtual void execute() = 0;`), and the `override` and `final` specifiers to verify polymorphic hierarchies at compile time.',
+    analogy: 'A Pure Virtual Abstract Class (`= 0`) is a strict hardware socket specification: any plugin module that implements every pin contract can be mounted into the engine.',
+    takeaways: [
+      'Always declare a `virtual ~Base() = default;` destructor on any polymorphic base class so deleting via a `Base*` pointer properly calls `~Derived()`.',
+      'Always mark overridden virtual functions with `override` so signature typos fail at compile time.',
+      'Mark leaf classes or hot virtual methods `final` so the compiler can devirtualize and inline calls.'
+    ],
+    syntaxRows: [
+      { syntax: 'virtual void onTick() = 0;', description: 'Pure virtual method making the class an abstract interface', example: 'virtual ~IExchange() = default;' },
+      { syntax: 'void onTick() override final', description: 'Compile-time override verification + devirtualization hint', example: 'class LimitOrder final : public Order' },
+      { syntax: 'class FixGateway : public IGateway', description: 'Public IS-A inheritance', example: 'std::unique_ptr<IGateway> gw;' },
+    ],
+    exampleLang: 'cpp',
+    exampleTitle: 'C++ Pure Virtual Interface & Override Verification',
+    exampleCode: `#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "Polymorphic Interface: virtual ~Base() = default | void onOrder() override final" << endl;
+    return 0;
+}`,
+    extraNotes: 'Why is missing a `virtual` destructor on a base class one of the most dangerous C++ bugs? Because `delete basePtr;` invokes Undefined Behavior and leaks all resources owned by the `Derived` subclass!',
+    fillBlank: {
+      prompt: 'Which C++11 specifier should you place at the end of a derived class method declaration to guarantee at compile time that it overrides a base class virtual function?',
+      codeBefore: 'void processOrder() ',
+      answer: 'override',
+      codeAfter: ' {\n  // implementation\n}',
+      hint: '8-letter keyword starting with over...'
+    },
+    quiz: {
+      question: 'What happens in C++ if you delete a Derived object through a Base* pointer when the Base class destructor is NOT declared virtual?',
+      options: ['It works normally', 'Undefined Behavior: only ~Base() runs and ~Derived() is skipped, leaking any resources held by the Derived class', 'The compiler automatically adds virtual', 'It throws a std::bad_alloc exception'],
+      correct: 1,
+      explanation: 'Without a virtual destructor in Base, static dispatch calls only ~Base() instead of dispatching through the vtable to ~Derived().'
+    },
+    interview: {
+      company: 'Unreal Engine (Epic Games) / Adobe',
+      question: 'How does the `final` keyword on a C++ class or virtual method improve runtime performance?',
+      answer: 'It enables Compiler Devirtualization: when the compiler knows a class cannot be subclassed further, it replaces indirect vtable pointer lookups with direct inlined function calls.'
+    }
+  },
+  {
+    id: 'cpp-stl',
+    title: 'C++ STL Containers: std::vector, unordered_map, map & priority_queue',
+    readTime: '10 mins',
+    summary: 'The C++ Standard Template Library (STL) provides generic, zero-overhead containers: contiguous `std::vector`, open/bucket hash tables (`std::unordered_map`), Red-Black trees (`std::map`/`std::set`), and binary heaps (`std::priority_queue`).',
+    analogy: 'The C++ STL is a precision systems toolkit: `std::vector` is your L1-cache-friendly contiguous array, `unordered_map` is your O(1) hash table, and `priority_queue` is your O(log N) binary heap.',
+    takeaways: [
+      'Call `vec.reserve(N)` upfront when you know the approximate element count to eliminate O(N) geometric reallocation copies and iterator invalidation.',
+      'Use `vec.emplace_back(args...)` to construct elements directly in place at the end of the vector buffer without creating a temporary object.',
+      '`std::priority_queue<T>` is a Max-Heap by default; pass `std::greater<T>` for a Min-Heap.'
+    ],
+    syntaxRows: [
+      { syntax: 'vector<int> v; v.reserve(1024);', description: 'Contiguous dynamic array with pre-allocated capacity', example: 'v.emplace_back(42);' },
+      { syntax: 'unordered_map<string, int> mp;', description: 'O(1) average hash table lookup & insertion', example: 'mp.try_emplace("BTC", 1);' },
+      { syntax: 'map<int, Order> book;', description: 'Sorted O(log N) Red-Black Tree map', example: 'auto it = book.lower_bound(px);' },
+      { syntax: 'priority_queue<int> pq;', description: 'O(log N) push/pop Max-Heap (backed by std::vector)', example: 'pq.top(); pq.pop();' },
+    ],
+    exampleLang: 'cpp',
+    exampleTitle: 'C++ STL Contiguous Vector & Hash Table Operations',
+    exampleCode: `#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "C++ STL: vector.reserve(N) O(1) push | unordered_map O(1) hash | map O(log N) Red-Black Tree!" << endl;
+    return 0;
+}`,
+    extraNotes: 'In low-latency C++, `std::vector` almost always beats `std::list` even for middle insertions up to thousands of elements because contiguous memory prefetches cleanly into 64-byte CPU L1 cache lines!',
     fillBlank: {
       prompt: 'Which C++ STL container provides O(1) average-time hash table key-value lookups?',
       codeBefore: '',
@@ -1524,15 +1513,106 @@ int main() {
       hint: 'Starts with unordered_ followed by map.'
     },
     quiz: {
-      question: 'What is the underlying data structure and lookup time complexity of std::map (vs std::unordered_map) in C++?',
-      options: ['Both use Hash Tables in O(1)', 'std::map uses a balanced Red-Black Tree in O(log N) and keeps keys sorted; std::unordered_map uses a Hash Table in O(1) average', 'std::map uses an array in O(N)', 'std::map is a stack'],
+      question: 'Why might calling std::vector::push_back() invalidate existing raw pointers, references, or iterators to elements inside the vector?',
+      options: ['Because push_back sorts the vector', 'When size() reaches capacity(), the vector allocates a new larger contiguous heap block, moves all elements over, and deallocates the old block—leaving old pointers dangling', 'Vectors cannot hold more than 16 elements', 'It only invalidates on pop_back()'],
       correct: 1,
-      explanation: 'std::map is an ordered Red-Black Tree (O(log N)), whereas std::unordered_map is a hash table (O(1) avg).'
+      explanation: 'Geometric reallocation moves elements to a brand-new heap address; calling `reserve(N)` prevents unexpected reallocations.'
     },
     interview: {
       company: 'Tower Research / Rubrik',
-      question: 'Why might std::vector.push_back() invalidate existing pointers or iterators to elements inside the vector?',
-      answer: 'When the vector\'s size reaches its capacity, it allocates a brand-new larger contiguous block of heap memory, moves all elements over, and frees the old memory block—leaving old pointers dangling!'
+      question: 'What is the difference between `v.push_back(T(a, b))` and `v.emplace_back(a, b)` in C++?',
+      answer: '`push_back` constructs a temporary `T` on the stack and then move-constructs it into the vector buffer, whereas `emplace_back` forwards arguments via variadic templates and placement-new constructs `T` directly inside the vector slot.'
+    }
+  },
+  {
+    id: 'cpp-templates-stl',
+    title: 'STL Iterators, std::sort (IntroSort) & <algorithm> Mastery',
+    readTime: '11 mins',
+    summary: 'C++ `<algorithm>` decouples generic algorithms (`std::sort`, `std::lower_bound`, `std::accumulate`, `std::remove_if`) from containers via compile-time Iterators, achieving hand-written C loop speed with expressive high-level syntax.',
+    analogy: 'Iterators are universal adapter plugs connecting any data container (vector, array, deque) to any algorithm (`sort`, `binary_search`) with zero virtual call overhead.',
+    takeaways: [
+      '`std::sort` uses IntroSort (QuickSort + HeapSort fallback when recursion depth exceeds 2*log2(N) + Insertion Sort for small partitions) to guarantee strict worst-case O(N log N) time.',
+      'Use `std::lower_bound(begin, end, val)` on sorted vectors for O(log N) binary search.',
+      'In C++20, use `std::erase_if(vec, pred)` instead of the verbose legacy erase-remove idiom.'
+    ],
+    syntaxRows: [
+      { syntax: 'std::sort(v.begin(), v.end());', description: 'Hybrid IntroSort in guaranteed O(N log N) worst-case time', example: 'std::sort(v.begin(), v.end(), greater<>());' },
+      { syntax: 'std::lower_bound(v.begin(), v.end(), x)', description: 'First iterator where *it >= x in O(log N)', example: 'auto it = lower_bound(v.begin(), v.end(), 42);' },
+      { syntax: 'std::erase_if(v, [](int x){ return x < 0; })', description: 'C++20 in-place O(N) compaction & removal', example: 'Removes all negative elements in one pass' },
+      { syntax: 'std::nth_element(v.begin(), v.begin()+k, v.end())', description: 'QuickSelect partial sort in O(N) average time', example: 'Finds exact median or top-K in O(N)' },
+    ],
+    exampleLang: 'cpp',
+    exampleTitle: 'C++ STL IntroSort & Binary Search (lower_bound) Pipeline',
+    exampleCode: `#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "STL <algorithm>: std::sort (IntroSort O(N log N)) + std::lower_bound O(log N) verified!" << endl;
+    return 0;
+}`,
+    extraNotes: 'Need the median or top-K elements without sorting the entire array? `std::nth_element` runs QuickSelect in $O(N)$ linear average time!',
+    fillBlank: {
+      prompt: 'Which C++ `<algorithm>` function performs a binary search on a sorted range and returns an iterator to the first element >= target?',
+      codeBefore: 'auto it = std::',
+      answer: 'lower_bound',
+      codeAfter: '(nums.begin(), nums.end(), target);',
+      hint: 'Starts with lower_ followed by bound.'
+    },
+    quiz: {
+      question: 'Why does C++ std::sort use IntroSort instead of pure QuickSort?',
+      options: ['Because QuickSort uses O(N) extra memory', 'Pure QuickSort degrades to O(N^2) on adversarial inputs; IntroSort switches to HeapSort if recursion depth exceeds 2*log(N), guaranteeing strict O(N log N) worst-case time', 'Because MergeSort is unstable', 'IntroSort runs in O(1)'],
+      correct: 1,
+      explanation: 'IntroSort (invented by David Musser) combines QuickSort speed, HeapSort worst-case O(N log N) safety, and Insertion Sort cache locality.'
+    },
+    interview: {
+      company: 'Google / Jump Trading',
+      question: 'Why does calling `std::remove_if(v.begin(), v.end(), pred)` alone NOT reduce `v.size()`?',
+      answer: 'Because `<algorithm>` functions operate purely on iterators and do not have access to the container object itself; `remove_if` shifts kept elements to the front and returns an iterator to the new logical end, which must be passed to `v.erase()` (or replaced with C++20 `std::erase_if`).'
+    }
+  },
+  {
+    id: 'cpp-smart-pointers',
+    title: 'Deterministic Memory: Stack Unwinding, unique_ptr & shared_ptr',
+    readTime: '11 mins',
+    summary: 'C++ achieves 100% memory safety without garbage collection pauses by binding heap resource ownership to stack-allocated Smart Pointers (`std::unique_ptr`, `std::shared_ptr`, `std::weak_ptr`).',
+    analogy: '`std::unique_ptr` is a sole property deed—only one owner can hold it at a time, and when that owner leaves the room (scope exit), the resource is destroyed immediately.',
+    takeaways: [
+      '`std::unique_ptr<T>` has zero size or speed overhead compared to a raw `T*` pointer and cannot be copied—only moved via `std::move`.',
+      'Always construct via `std::make_unique<T>(...)` and `std::make_shared<T>(...)` for exception safety and single-allocation control blocks.',
+      'Use `std::weak_ptr<T>` for parent-back-pointers or caches to break reference-counting cycles.'
+    ],
+    syntaxRows: [
+      { syntax: 'auto p = std::make_unique<Node>(42);', description: 'Zero-overhead exclusive ownership smart pointer', example: 'auto p2 = std::move(p);' },
+      { syntax: 'auto s = std::make_shared<Session>();', description: 'Single heap allocation for object + atomic ref-count block', example: 's.use_count();' },
+      { syntax: 'std::weak_ptr<Session> wp = s;', description: 'Non-owning observer that breaks shared_ptr cycles', example: 'if (auto locked = wp.lock()) { ... }' },
+    ],
+    exampleLang: 'cpp',
+    exampleTitle: 'Deterministic RAII Cleanup with std::make_unique & std::move',
+    exampleCode: `#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "RAII Smart Pointers: make_unique<Order>(101) -> Zero-overhead deterministic destructor!" << endl;
+    return 0;
+}`,
+    extraNotes: 'Why does `std::make_shared<T>()` outperform `std::shared_ptr<T>(new T())`? Because `make_shared` performs **one** combined heap allocation for both `T` and the atomic reference-count control block, improving cache locality!',
+    fillBlank: {
+      prompt: 'Which C++14 factory function safely allocates a single-owner smart pointer without using raw "new"?',
+      codeBefore: 'auto engine = std::',
+      answer: 'make_unique',
+      codeAfter: '<MatchingEngine>(1024);',
+      hint: 'Starts with make_ followed by unique.'
+    },
+    quiz: {
+      question: 'How do you transfer ownership of a std::unique_ptr<Buffer> from one variable to another?',
+      options: ['By normal copy assignment: b2 = b1;', 'Using move semantics: b2 = std::move(b1); which transfers the internal pointer in O(1) and sets b1 to nullptr', 'Using reinterpret_cast', 'You cannot transfer ownership of a unique_ptr'],
+      correct: 1,
+      explanation: 'std::unique_ptr deletes its copy constructor to enforce unique ownership; ownership can only be transferred explicitly via std::move.'
+    },
+    interview: {
+      company: 'Meta / NVIDIA',
+      question: 'What happens if two objects hold `std::shared_ptr` references to each other, and how do you fix it?',
+      answer: 'They form a cyclic reference whose reference count never reaches 0, causing a memory leak. Fix it by making one direction (e.g., child-to-parent or observer) a non-owning `std::weak_ptr`.'
     }
   },
   {

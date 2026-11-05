@@ -4,13 +4,15 @@ import DOMPurify from 'dompurify';
 import { db } from '../services/db';
 import { executeSnippet, SnippetExecutionResult } from '../services/codeRunner';
 
+export type SandboxLangId = 'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'java' | 'bash';
+
 export interface SuitedLanguageOption {
-  id: 'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash';
+  id: SandboxLangId;
   label: string;
   runtimeBadge: string;
 }
 
-const ALL_LANGUAGE_META: Record<'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash', SuitedLanguageOption> = {
+const ALL_LANGUAGE_META: Record<SandboxLangId, SuitedLanguageOption> = {
   python: {
     id: 'python',
     label: 'Python 3.12',
@@ -33,8 +35,13 @@ const ALL_LANGUAGE_META: Record<'python' | 'javascript' | 'sql' | 'html' | 'cpp'
   },
   cpp: {
     id: 'cpp',
-    label: 'C++20 / Java',
-    runtimeBadge: 'C++20 & JVM Systems Runtime'
+    label: 'C++20 / C++23',
+    runtimeBadge: 'C++20/23 Native Systems Runtime'
+  },
+  java: {
+    id: 'java',
+    label: 'Java 21 LTS',
+    runtimeBadge: 'Java 21 LTS (OpenJDK HotSpot JVM)'
   },
   bash: {
     id: 'bash',
@@ -43,7 +50,7 @@ const ALL_LANGUAGE_META: Record<'python' | 'javascript' | 'sql' | 'html' | 'cpp'
   }
 };
 
-const COURSE_SUITED_LANGUAGES: Record<string, ('python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash')[]> = {
+const COURSE_SUITED_LANGUAGES: Record<string, SandboxLangId[]> = {
   'c-html': ['html'],
   'c-css': ['html'],
   'c-js': ['javascript'],
@@ -51,11 +58,12 @@ const COURSE_SUITED_LANGUAGES: Record<string, ('python' | 'javascript' | 'sql' |
   'c-react': ['javascript', 'html'],
   'c1': ['python'],
   'c5': ['sql', 'python'],
-  'c4': ['python', 'cpp', 'javascript'],
+  'c4': ['python', 'cpp', 'java', 'javascript'],
   'c11': ['cpp'],
+  'c-java': ['java'],
   'c3': ['python', 'cpp', 'bash'],
   'c7': ['python', 'javascript'],
-  'c6': ['python', 'sql', 'javascript'],
+  'c6': ['python', 'java', 'sql', 'javascript'],
   'c2': ['python', 'cpp'],
   'c12': ['python'],
   'c-harness': ['python', 'javascript'],
@@ -64,7 +72,7 @@ const COURSE_SUITED_LANGUAGES: Record<string, ('python' | 'javascript' | 'sql' |
   'c-terraform': ['bash']
 };
 
-export const normalizeSandboxLang = (rawLang?: string): 'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash' => {
+export const normalizeSandboxLang = (rawLang?: string): SandboxLangId => {
   const clean = (rawLang || 'python').toLowerCase().trim();
   if (clean === 'bash' || clean === 'sh' || clean === 'git' || clean === 'shell') return 'bash';
   if (clean === 'html' || clean === 'css') return 'html';
@@ -72,7 +80,8 @@ export const normalizeSandboxLang = (rawLang?: string): 'python' | 'javascript' 
     return 'javascript';
   }
   if (clean === 'sql') return 'sql';
-  if (clean === 'cpp' || clean === 'c++' || clean === 'java' || clean === 'c') return 'cpp';
+  if (clean === 'java') return 'java';
+  if (clean === 'cpp' || clean === 'c++' || clean === 'c') return 'cpp';
   return 'python';
 };
 
@@ -145,9 +154,15 @@ LIMIT 4;`,
 using namespace std;
 
 int main() {
-    cout << "Code It Out C++20 STL & Systems Sandbox Ready!" << endl;
-    cout << "Binary Search Time Complexity: O(log N) | Space: O(1)" << endl;
+    cout << "Code It Out C++20/23 Native Systems Sandbox Ready!" << endl;
+    cout << "RAII + IntroSort O(N log N) + Zero-Overhead Abstractions" << endl;
     return 0;
+}`,
+  java: `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Code It Out Java 21 LTS (OpenJDK HotSpot) Sandbox Ready!");
+        System.out.println("Virtual Threads (Project Loom) + Generational ZGC Active");
+    }
 }`,
   bash: `# Interactive Git & GitHub CLI Terminal Sandbox
 $ git init
@@ -163,7 +178,7 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language, courseId, isFu
     [courseId, language]
   );
 
-  const [selectedLang, setSelectedLang] = useState<'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash'>(() =>
+  const [selectedLang, setSelectedLang] = useState<SandboxLangId>(() =>
     normalizeSandboxLang(language)
   );
   const [code, setCode] = useState<string>(initialCode || LANGUAGE_TEMPLATES.python);
@@ -272,7 +287,7 @@ const CodePlayground: React.FC<Props> = ({ initialCode, language, courseId, isFu
     }
   }, [code, selectedLang]);
 
-  const handleLanguageSwitch = (newLang: 'python' | 'javascript' | 'sql' | 'html' | 'cpp' | 'bash') => {
+  const handleLanguageSwitch = (newLang: SandboxLangId) => {
     setSelectedLang(newLang);
     const nativeNorm = normalizeSandboxLang(language);
     const nextCode =

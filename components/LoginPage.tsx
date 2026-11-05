@@ -125,10 +125,11 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
         name: targetName,
         email: targetEmail,
         role: targetEmail.includes('admin') ? 'admin' : 'user',
+        tier: 'Novice',
         streak: 3,
         lastLogin: new Date().toISOString(),
         xp: 150,
-        level: 2,
+        level: 1,
         badges: []
       };
     } else {
@@ -175,6 +176,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
         name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Engineer',
         email: firebaseUser.email || '',
         role,
+        tier: 'Novice',
         streak: 1,
         lastLogin: new Date().toISOString(),
         xp: 100,
@@ -247,6 +249,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
           name: displayName.trim() || firebaseUser.displayName || email.split('@')[0],
           email: firebaseUser.email || email,
           role,
+          tier: 'Novice',
           streak: 1,
           lastLogin: new Date().toISOString(),
           xp: 100,
@@ -299,11 +302,11 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Code It Out</h1>
           <p className="text-xs text-slate-400 mt-1">
-            14 Engineering Tracks · 352 Interactive Modules · Cloud Sync
+            18 Engineering Tracks · 452 Interactive Modules · Supabase Relational Sync
           </p>
           <div className="mt-2 text-[11px] font-mono text-slate-400">
-            Project: <span className="text-emerald-400">{firebaseConfig.projectId}</span>
-            {GOOGLE_OAUTH_CLIENT_ID ? ' · OAuth Client Active' : ''}
+            Firebase Auth: <span className="text-emerald-400">{firebaseConfig.projectId}</span>
+            {GOOGLE_OAUTH_CLIENT_ID ? ' · OAuth Active' : ''}
             {IS_CUSTOM_ENV_CONFIGURED ? ' · Custom .env Loaded' : ' · Ready for .env'}
           </div>
         </div>

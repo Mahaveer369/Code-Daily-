@@ -15,55 +15,59 @@ import {
   signOut,
   deleteUser
 } from "firebase/auth";
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  getFirestore
-} from "firebase/firestore";
+import appletFirebaseConfig from "../firebase-applet-config.json";
+
+/**
+ * FIREBASE AUTHENTICATION ONLY MODULE
+ * ----------------------------------------------------------------------------
+ * Per system architecture:
+ * - Identity & Authentication (Google OAuth 2.0, Email/Password, Session JWTs)
+ *   are handled exclusively by Firebase Authentication.
+ * - Relational Database Persistence (Users, Course Progress, Module Milestones,
+ *   Global Leaderboard, Bookmarks, Certificates, Audit Logs) is handled 100%
+ *   by Supabase PostgreSQL (`services/supabase.ts`).
+ */
 
 const metaEnv = (import.meta as any).env || {};
 const envApiKey = metaEnv.VITE_FIREBASE_API_KEY;
 const envProjectId = metaEnv.VITE_FIREBASE_PROJECT_ID;
-export const GOOGLE_OAUTH_CLIENT_ID = metaEnv.VITE_GOOGLE_CLIENT_ID || "";
+export const GOOGLE_OAUTH_CLIENT_ID =
+  metaEnv.VITE_GOOGLE_CLIENT_ID || appletFirebaseConfig.oAuthClientId || "";
+
 export const IS_CUSTOM_ENV_CONFIGURED = Boolean(
   (envApiKey && envApiKey !== "your-firebase-api-key") ||
-  (GOOGLE_OAUTH_CLIENT_ID && GOOGLE_OAUTH_CLIENT_ID !== "your-google-oauth-client-id.apps.googleusercontent.com")
+  (GOOGLE_OAUTH_CLIENT_ID &&
+    GOOGLE_OAUTH_CLIENT_ID !== "your-google-oauth-client-id.apps.googleusercontent.com")
 );
 
 export const firebaseConfig = {
-  apiKey: envApiKey || "AIzaSyC6JRK0s2xeVhe86q2lJEe6tl-OMuNPpuI",
-  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || `${envProjectId || "authentication-d87db"}.firebaseapp.com`,
-  projectId: envProjectId || "authentication-d87db",
-  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || `${envProjectId || "authentication-d87db"}.firebasestorage.app`,
-  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || "2529239430",
-  appId: metaEnv.VITE_FIREBASE_APP_ID || "1:2529239430:web:f7d7fa6fe8d8a524884c07",
-  measurementId: metaEnv.VITE_FIREBASE_MEASUREMENT_ID || "G-E3Z8QDBLNW"
+  apiKey: envApiKey || appletFirebaseConfig.apiKey,
+  authDomain:
+    metaEnv.VITE_FIREBASE_AUTH_DOMAIN ||
+    appletFirebaseConfig.authDomain ||
+    `${envProjectId || appletFirebaseConfig.projectId}.firebaseapp.com`,
+  projectId: envProjectId || appletFirebaseConfig.projectId,
+  storageBucket:
+    metaEnv.VITE_FIREBASE_STORAGE_BUCKET ||
+    appletFirebaseConfig.storageBucket ||
+    `${envProjectId || appletFirebaseConfig.projectId}.firebasestorage.app`,
+  messagingSenderId:
+    metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || appletFirebaseConfig.messagingSenderId,
+  appId: metaEnv.VITE_FIREBASE_APP_ID || appletFirebaseConfig.appId,
+  measurementId: metaEnv.VITE_FIREBASE_MEASUREMENT_ID || appletFirebaseConfig.measurementId || ""
 };
 
-// Initialize or reuse Firebase App instance safely
+// Initialize or reuse Firebase App instance safely for Authentication only
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Auth
+// Initialize Firebase Authentication
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope("profile");
 googleProvider.addScope("email");
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
-// Initialize Firestore with multi-tab offline cache
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
-} catch {
-  firestoreDb = getFirestore(app);
-}
-
-// Deterministic RFC-6238 style 6-digit TOTP code generator for Google Authenticator verification
+// Deterministic RFC-6238 style 6-digit TOTP code generator for Google Authenticator 2FA verification
 export const computeCurrentTotpCode = (secretKey: string = "JBSWY3DPEHPK3PXP"): string => {
   const timeStep = Math.floor(Date.now() / 30000);
   let hash = 2166136261;
@@ -76,10 +80,22 @@ export const computeCurrentTotpCode = (secretKey: string = "JBSWY3DPEHPK3PXP"): 
   return String(code).padStart(6, "0");
 };
 
+/**
+ * Retrieves the signed Firebase ID Token (JWT) to authenticate relational
+ * queries against Supabase Row-Level Security (RLS) policies.
+ */
+export const getFirebaseAuthJwt = async (): Promise<string | null> => {
+  try {
+    if (!auth.currentUser) return null;
+    return await auth.currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+};
+
 export {
   app,
   auth,
-  firestoreDb,
   googleProvider,
   GoogleAuthProvider,
   signInWithCredential,

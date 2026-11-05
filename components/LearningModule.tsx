@@ -729,9 +729,9 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                 <tbody className="divide-y divide-slate-800/70">
                   {lessonContent.syntaxCheatTable.map((row, rIdx) => (
                     <tr key={rIdx}>
-                      <td className="py-2 px-3.5 font-mono font-semibold text-emerald-400">{row.syntax}</td>
-                      <td className="py-2 px-3.5 text-slate-200">{row.description}</td>
-                      <td className="py-2 px-3.5 font-mono text-blue-300">{row.example}</td>
+                      <td className="py-2 px-3.5 font-mono font-semibold text-emerald-400 break-words">{row.syntax}</td>
+                      <td className="py-2 px-3.5 text-slate-200 break-words">{row.description}</td>
+                      <td className="py-2 px-3.5 font-mono text-blue-300 break-words">{row.example}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -901,21 +901,21 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                 {lessonContent.realWorldUseCases.map((uc, uIdx) => (
                   <div
                     key={uIdx}
-                    className="bg-[#0b101b] border border-slate-800/90 hover:border-emerald-500/40 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 transition-colors"
+                    className="min-w-0 overflow-hidden bg-[#0b101b] border border-slate-800/90 hover:border-emerald-500/40 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 transition-colors"
                   >
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-extrabold text-emerald-400 font-mono">
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <span className="text-xs font-extrabold text-emerald-400 font-mono truncate">
                           {uc.company}
                         </span>
-                        <span className="text-[10px] font-mono font-semibold text-blue-300 bg-blue-950/50 border border-blue-800/50 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-mono font-semibold text-blue-300 bg-blue-950/50 border border-blue-800/50 px-2 py-0.5 rounded shrink-0">
                           Case #{uIdx + 1}
                         </span>
                       </div>
-                      <p className="text-xs font-semibold text-slate-100 leading-snug">
+                      <p className="text-xs font-semibold text-slate-100 leading-snug break-words">
                         {uc.scenario}
                       </p>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <p className="text-[11px] text-slate-400 leading-relaxed break-words">
                         {uc.architectureNote}
                       </p>
                     </div>
@@ -1015,7 +1015,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                           <h4 className="text-sm font-bold text-white">{ex.title}</h4>
                           <span
                             className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                              ex.difficulty === 'Interview Must-Solve'
+                              ex.difficulty === 'Mastery Challenge'
                                 ? 'bg-amber-950/60 border-amber-600/50 text-amber-300'
                                 : ex.difficulty === 'Core Practice'
                                 ? 'bg-blue-950/60 border-blue-600/50 text-blue-300'
@@ -1068,7 +1068,8 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
                             }}
                             placeholder="Write command or code..."
                             style={{
-                              width: `${Math.max(16, (ex.answer.length || 8) + 6)}ch`,
+                              width: `${Math.min(34, Math.max(16, (ex.answer.length || 8) + 4))}ch`,
+                              maxWidth: '100%',
                             }}
                             className="px-2.5 py-1 rounded-lg bg-slate-900 border border-emerald-500/80 text-emerald-300 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400"
                           />

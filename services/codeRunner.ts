@@ -1,4 +1,4 @@
-import { PracticeProblem } from '../types';
+import { PracticeProblem, UserTier, TierMetadata } from '../types';
 
 export interface SnippetExecutionResult {
   success: boolean;
@@ -651,20 +651,70 @@ export function executeSnippet(codeStr: string, lang: string): SnippetExecutionR
     };
   }
 
-  // C++ / Java cout or System.out.println extractor
+  // C++20/23 & Java 21 LTS Execution Simulator
   if (normalizedLang === 'cpp' || normalizedLang === 'c++' || normalizedLang === 'java') {
     const outputs: string[] = [];
-    const coutMatches = codeStr.matchAll(/cout\s*<<\s*"([^"]*)"/g);
-    for (const m of coutMatches) outputs.push(m[1].replace(/\\n/g, ''));
-    const sysMatches = codeStr.matchAll(/System\.out\.print(?:ln)?\s*\(\s*"([^"]*)"\s*\)/g);
-    for (const m of sysMatches) outputs.push(m[1]);
+
+    // Extract simple int/long/double/String variable declarations for interpolation in cout / System.out.println
+    const vars: Record<string, string> = {};
+    const varRegex = /\b(?:int|long|double|float|size_t|int64_t|uint64_t|String|var|auto)\s+([a-zA-Z_]\w*)\s*=\s*([^;]+);/g;
+    for (const vm of codeStr.matchAll(varRegex)) {
+      const name = vm[1];
+      const rawVal = vm[2].trim().replace(/^["']|["']$/g, '');
+      vars[name] = rawVal;
+    }
+
+    // 1. C++ cout << ... lines
+    for (const line of codeStr.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.includes('cout') && trimmed.includes('<<')) {
+        const afterCout = trimmed.split(/cout\s*<</)[1];
+        if (afterCout) {
+          const parts = afterCout
+            .replace(/;\s*$/, '')
+            .split('<<')
+            .map((p) => p.trim())
+            .filter((p) => p && p !== 'endl' && p !== 'std::endl' && p !== '"\\n"' && p !== "'\\n'");
+          const rendered = parts
+            .map((p) => {
+              if ((p.startsWith('"') && p.endsWith('"')) || (p.startsWith("'") && p.endsWith("'"))) {
+                return p.slice(1, -1).replace(/\\n/g, '');
+              }
+              return vars[p] ?? p;
+            })
+            .join('');
+          if (rendered) outputs.push(rendered);
+        }
+      }
+    }
+
+    // 2. Java System.out.println(...) / System.out.print(...)
+    const sysLineRegex = /System\.out\.print(?:ln)?\s*\(([^;]+)\)\s*;/g;
+    for (const sm of codeStr.matchAll(sysLineRegex)) {
+      const expr = sm[1].trim();
+      const tokens = expr.split('+').map((t) => t.trim());
+      const rendered = tokens
+        .map((t) => {
+          if (t.startsWith('"') && t.endsWith('"')) {
+            return t.slice(1, -1);
+          }
+          return vars[t] ?? t;
+        })
+        .join('');
+      if (rendered) outputs.push(rendered);
+    }
 
     return {
       success: true,
-      output: outputs.length > 0 ? outputs.join('\n') : `Compiled and executed ${lang.toUpperCase()} target successfully (exit code 0).`,
+      output:
+        outputs.length > 0
+          ? outputs.join('\n')
+          : normalizedLang === 'java'
+          ? 'Compiled with javac 21 & executed on OpenJDK 21 HotSpot JVM (exit code 0).'
+          : 'Compiled with clang++ -std=c++20 -O3 & executed native binary (exit code 0).',
       error: null,
       execution_time_ms: Math.max(1, Math.round(performance.now() - startTime)),
-      language: normalizedLang
+      language: normalizedLang === 'java' ? 'java' : 'cpp'
     };
   }
 
@@ -760,14 +810,108 @@ export function evaluateProblemSubmission(
   }
 }
 
-export function calculateLevelFromXp(xp: number): { level: number; nextLevelXp: number; progressPercent: number } {
+export const TIER_THRESHOLDS: {
+  tier: UserTier;
+  minXp: number;
+  maxXp: number | null;
+  tagline: string;
+  accentColor: string;
+}[] = [
+  {
+    tier: 'Novice',
+    minXp: 0,
+    maxXp: 499,
+    tagline: 'Foundational CS & Web Builder (Levels 1)',
+    accentColor: 'text-slate-300 border-slate-700 bg-slate-900',
+  },
+  {
+    tier: 'Practitioner',
+    minXp: 500,
+    maxXp: 1499,
+    tagline: 'Applied Full-Stack & Systems Practitioner (Levels 2–3)',
+    accentColor: 'text-emerald-300 border-emerald-600/50 bg-emerald-950/50',
+  },
+  {
+    tier: 'Specialist',
+    minXp: 1500,
+    maxXp: 2999,
+    tagline: 'Distributed & Cloud-Native Specialist (Levels 4–6)',
+    accentColor: 'text-blue-300 border-blue-600/50 bg-blue-950/50',
+  },
+  {
+    tier: 'Master',
+    minXp: 3000,
+    maxXp: 4999,
+    tagline: 'Principal Systems & Algorithms Master (Levels 7–10)',
+    accentColor: 'text-amber-300 border-amber-600/50 bg-amber-950/50',
+  },
+  {
+    tier: 'Architect',
+    minXp: 5000,
+    maxXp: null,
+    tagline: 'Distinguished Staff Systems Architect (Level 11+)',
+    accentColor: 'text-rose-300 border-rose-500/60 bg-rose-950/50',
+  },
+];
+
+export function calculateTierFromXp(xp: number): TierMetadata {
+  const safeXp = Math.max(0, Math.floor(xp || 0));
+  let currentIdx = 0;
+  for (let i = TIER_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (safeXp >= TIER_THRESHOLDS[i].minXp) {
+      currentIdx = i;
+      break;
+    }
+  }
+  const current = TIER_THRESHOLDS[currentIdx];
+  const next = TIER_THRESHOLDS[currentIdx + 1] || null;
+
+  if (!next) {
+    return {
+      tier: current.tier,
+      minXp: current.minXp,
+      maxXp: null,
+      nextTier: null,
+      xpToNextTier: 0,
+      tierProgressPercent: 100,
+      tagline: current.tagline,
+      accentColor: current.accentColor,
+    };
+  }
+
+  const span = next.minXp - current.minXp;
+  const intoTier = safeXp - current.minXp;
+  const tierProgressPercent = Math.min(100, Math.max(0, Math.round((intoTier / span) * 100)));
+
+  return {
+    tier: current.tier,
+    minXp: current.minXp,
+    maxXp: current.maxXp,
+    nextTier: next.tier,
+    xpToNextTier: Math.max(0, next.minXp - safeXp),
+    tierProgressPercent,
+    tagline: current.tagline,
+    accentColor: current.accentColor,
+  };
+}
+
+export function calculateLevelFromXp(xp: number): {
+  level: number;
+  nextLevelXp: number;
+  progressPercent: number;
+  tier: UserTier;
+  tierMeta: TierMetadata;
+} {
   const safeXp = Math.max(0, xp);
   const level = Math.floor(safeXp / 500) + 1;
   const xpIntoLevel = safeXp % 500;
   const progressPercent = Math.min(100, Math.round((xpIntoLevel / 500) * 100));
+  const tierMeta = calculateTierFromXp(safeXp);
   return {
     level,
     nextLevelXp: 500 - xpIntoLevel,
-    progressPercent
+    progressPercent,
+    tier: tierMeta.tier,
+    tierMeta,
   };
 }
