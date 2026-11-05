@@ -24,8 +24,10 @@ import { getFirebaseAuthJwt } from './firebase';
  */
 
 const metaEnv = (import.meta as any).env || {};
-export const SUPABASE_URL: string = metaEnv.VITE_SUPABASE_URL || '';
-export const SUPABASE_ANON_KEY: string = metaEnv.VITE_SUPABASE_ANON_KEY || '';
+export const SUPABASE_URL: string =
+  metaEnv.VITE_SUPABASE_URL || metaEnv.NEXT_PUBLIC_SUPABASE_URL || '';
+export const SUPABASE_ANON_KEY: string =
+  metaEnv.VITE_SUPABASE_ANON_KEY || metaEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const IS_SUPABASE_CONFIGURED = Boolean(
   SUPABASE_URL &&
