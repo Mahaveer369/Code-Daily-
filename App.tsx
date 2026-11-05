@@ -58,10 +58,11 @@ const App: React.FC = () => {
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
 
-  // Account & Security Modal State
+  // Account & Security Modal + Mobile Tutor State
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [accountActionMsg, setAccountActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Global Command Palette Shortcut (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -244,7 +245,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0b101b] font-sans text-slate-100 flex flex-col overflow-x-hidden">
       {/* Zone 1-3 Top Navigation Bar (Strict 3-Zone Contract) */}
-      <header className="sticky top-0 z-40 bg-[#0b101b]/95 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-2.5 flex items-center justify-between gap-4 sm:gap-8">
+      <header className="sticky top-0 z-40 bg-[#0b101b]/95 backdrop-blur-md border-b border-slate-800 px-3 sm:px-8 py-2.5 flex items-center justify-between gap-2 sm:gap-6">
         {/* Zone 1: Single text element Brand Wordmark */}
         <a
           href="#top"
@@ -252,7 +253,7 @@ const App: React.FC = () => {
             e.preventDefault();
             setActiveTab('dashboard');
           }}
-          className="text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0"
+          className="text-base sm:text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0"
         >
           Code It Out
         </a>
@@ -288,15 +289,14 @@ const App: React.FC = () => {
         </nav>
 
         {/* Zone 3: Search + Industry-Standard User Session & Auth Controls */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="min-h-[36px] px-3 py-1.5 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 transition-colors whitespace-nowrap shrink-0"
+            className="min-h-[34px] sm:min-h-[36px] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700 text-[11px] sm:text-xs font-medium text-slate-200 transition-colors whitespace-nowrap shrink-0"
           >
             <span className="hidden sm:inline">Search {TOTAL_MODULES_COUNT} Topics </span>
-            <span className="sm:hidden">Search </span>
-            <span className="font-mono text-slate-400">(⌘K)</span>
+            <span className="font-mono text-slate-300 sm:text-slate-400">⌘K</span>
           </button>
 
           {/* User Profile & Tier Trigger */}
@@ -308,9 +308,9 @@ const App: React.FC = () => {
               setShowAccountModal(true);
             }}
             title={`${user.name} · ${user.tier} (${user.xp} XP)`}
-            className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700/90 flex items-center gap-2 text-xs transition-colors shrink-0"
+            className="min-h-[34px] sm:min-h-[36px] px-2 sm:px-2.5 py-1 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700/90 flex items-center gap-1.5 sm:gap-2 text-xs transition-colors shrink-0"
           >
-            <span className="w-5 h-5 rounded-md bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-[11px] flex items-center justify-center shrink-0">
+            <span className="w-5 h-5 rounded-md bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-[10px] sm:text-[11px] flex items-center justify-center shrink-0">
               {(user.name || 'U')
                 .split(' ')
                 .filter(Boolean)
@@ -318,7 +318,7 @@ const App: React.FC = () => {
                 .map((part) => part[0]?.toUpperCase())
                 .join('')}
             </span>
-            <span className="font-semibold text-white max-w-[110px] sm:max-w-[150px] truncate">
+            <span className="hidden sm:inline font-semibold text-white max-w-[140px] truncate">
               {user.name}
             </span>
             <span className="hidden lg:inline font-mono text-[11px] text-emerald-400 font-semibold whitespace-nowrap">
@@ -332,7 +332,7 @@ const App: React.FC = () => {
               type="button"
               data-testid="header-login-btn"
               onClick={() => setShowAuthScreen(true)}
-              className="min-h-[36px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+              className="min-h-[34px] sm:min-h-[36px] px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
             >
               Sign In
             </button>
@@ -343,7 +343,7 @@ const App: React.FC = () => {
             type="button"
             data-testid="header-logout-btn"
             onClick={handleLogoutToAuth}
-            className="min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 border border-rose-700/60 text-rose-200 hover:text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+            className="min-h-[34px] sm:min-h-[36px] px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 border border-rose-700/60 text-rose-200 hover:text-white text-[11px] sm:text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
           >
             Log Out
           </button>
@@ -460,32 +460,88 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Mobile Bottom Navigation (< md) */}
+      {/* Mobile Bottom Navigation (< md) — Zero-Overlap 6-Item Dock */}
       <nav
         aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0b101b]/95 backdrop-blur-xl border-t border-slate-800 flex items-center justify-around py-2 px-2"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0b101b]/95 backdrop-blur-xl border-t border-slate-800 grid grid-cols-6 items-center px-1.5 py-1.5"
       >
         {[
-          { id: 'dashboard', label: 'Home' },
-          { id: 'learn', label: 'Tutorials' },
-          { id: 'practice', label: 'Practice' },
-          { id: 'visualizer', label: 'Visualizer' },
-          { id: 'cheatsheets', label: 'Sheets' },
-        ].map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setActiveTab(item.id as AppTab)}
-            className={`py-1.5 px-3 rounded-xl text-xs font-semibold transition-colors ${
-              activeTab === item.id ? 'text-blue-400 bg-blue-600/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+          {
+            id: 'dashboard',
+            label: 'Home',
+            icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+          },
+          {
+            id: 'learn',
+            label: 'Tutorials',
+            icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+          },
+          {
+            id: 'practice',
+            label: 'Practice',
+            icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+          },
+          {
+            id: 'visualizer',
+            label: 'Visuals',
+            icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+          },
+          {
+            id: 'cheatsheets',
+            label: 'Sheets',
+            icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+          },
+        ].map((item) => {
+          const isActive = activeTab === item.id && !isChatOpen;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setIsChatOpen(false);
+                if (item.id === 'learn') {
+                  setTargetCourseId(undefined);
+                  setTargetModuleId(undefined);
+                }
+                setActiveTab(item.id as AppTab);
+              }}
+              className={`min-h-[44px] py-1 px-1 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+                isActive
+                  ? 'text-emerald-400 bg-emerald-600/15'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+              </svg>
+              <span className="truncate max-w-full">{item.label}</span>
+            </button>
+          );
+        })}
+
+        {/* 6th Dock Item: Integrated Mobile Study Tutor Trigger (Zero Floating Overlap) */}
+        <button
+          type="button"
+          data-testid="mobile-tutor-btn"
+          onClick={() => setIsChatOpen((prev) => !prev)}
+          className={`min-h-[44px] py-1 px-1 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+            isChatOpen
+              ? 'text-emerald-400 bg-emerald-600/20 border border-emerald-500/40'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+            />
+          </svg>
+          <span className="truncate max-w-full">Tutor</span>
+        </button>
       </nav>
 
-      <ChatBot />
+      <ChatBot isOpenExternal={isChatOpen} onToggleExternal={setIsChatOpen} />
 
       {/* Global Command Palette */}
       <CommandPalette

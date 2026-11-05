@@ -67,19 +67,6 @@ googleProvider.addScope("profile");
 googleProvider.addScope("email");
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
-// Deterministic RFC-6238 style 6-digit TOTP code generator for Google Authenticator 2FA verification
-export const computeCurrentTotpCode = (secretKey: string = "JBSWY3DPEHPK3PXP"): string => {
-  const timeStep = Math.floor(Date.now() / 30000);
-  let hash = 2166136261;
-  const combined = `${secretKey.toUpperCase().replace(/\s+/g, "")}:${timeStep}`;
-  for (let i = 0; i < combined.length; i++) {
-    hash ^= combined.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  const code = Math.abs(hash) % 1000000;
-  return String(code).padStart(6, "0");
-};
-
 /**
  * Retrieves the signed Firebase ID Token (JWT) to authenticate relational
  * queries against Supabase Row-Level Security (RLS) policies.
