@@ -363,7 +363,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onOpenLegal }) => {
 
         if (!profile) {
           profile = {
-            id: 'usr_' + Math.random().toString(36).substring(2, 10),
+            id: 'usr_' + crypto.randomUUID().replace(/-/g, '').substring(0, 8),
             name: resolvedName,
             email: cleanEmail,
             role: 'user',
