@@ -258,6 +258,11 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
   // VIEW 1: All 14 Subject Tracks & 350-Module Catalog Browser
   // ============================================================================
   if (!selectedCourse || !activeModule) {
+    const view1CurrentUser = db.getCurrentUser();
+    const view1ProgressMap = new Map(
+      (view1CurrentUser ? db.getUserProgress(view1CurrentUser.id) : []).map(p => [p.courseId, p])
+    );
+
     return (
       <div className="space-y-8 pb-12">
         <div className="bg-[#121a2b] border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
@@ -314,10 +319,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid showing custom SVG banner + ALL 25 modules inside each track */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser
-              ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id)
-              : null;
+            const progress = view1ProgressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
             const visualUri = getTrackVisualDataUri(course.id);
