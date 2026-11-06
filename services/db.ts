@@ -108,9 +108,27 @@ export const db = {
       const str = localStorage.getItem(K_USERS);
       const rawMap: Record<string, UserProfile> = str ? JSON.parse(str) : {};
       const normalized: Record<string, UserProfile> = {};
+      let dirty = false;
       Object.entries(rawMap).forEach(([email, u]) => {
+        if (
+          !u ||
+          u.id === 'student_default_01' ||
+          email.toLowerCase().includes('alex.mercer') ||
+          u.email?.toLowerCase().includes('alex.mercer') ||
+          u.name === 'Alex Mercer'
+        ) {
+          dirty = true;
+          return;
+        }
         normalized[email] = normalizeUserTierAndLevel(u);
       });
+      if (dirty) {
+        try {
+          localStorage.setItem(K_USERS, JSON.stringify(normalized));
+        } catch {
+          // Ignore quota errors
+        }
+      }
       return normalized;
     } catch {
       return {};
@@ -122,6 +140,14 @@ export const db = {
       const str = localStorage.getItem(K_SESSION);
       if (!str) return null;
       const parsed: UserProfile = JSON.parse(str);
+      if (
+        parsed.id === 'student_default_01' ||
+        parsed.email?.toLowerCase().includes('alex.mercer') ||
+        parsed.name === 'Alex Mercer'
+      ) {
+        localStorage.removeItem(K_SESSION);
+        return null;
+      }
       return normalizeUserTierAndLevel(parsed);
     } catch {
       return null;
@@ -303,7 +329,11 @@ export const db = {
     const allStoredUsers = Object.values(db.getUsers());
     const validRealUsers = allStoredUsers.filter((u) => {
       if (!u || !u.name || !u.id) return false;
-      if (u.id === 'student_default_01' && current && current.id !== 'student_default_01') {
+      if (
+        u.id === 'student_default_01' ||
+        u.name === 'Alex Mercer' ||
+        u.email?.toLowerCase().includes('alex.mercer')
+      ) {
         return false;
       }
       const trimmedName = u.name.trim();

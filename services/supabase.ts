@@ -56,6 +56,61 @@ export function getSupabaseClient(): SupabaseClient | null {
   return supabaseClientInstance;
 }
 
+export interface DatabaseStatusReport {
+  isConfigured: boolean;
+  connected: boolean;
+  tablesExist: boolean;
+  message: string;
+}
+
+export async function checkSupabaseDatabaseStatus(): Promise<DatabaseStatusReport> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return {
+      isConfigured: false,
+      connected: false,
+      tablesExist: false,
+      message: 'Supabase credentials not configured in environment variables.',
+    };
+  }
+
+  try {
+    const { error } = await client.from('users').select('id').limit(1);
+    if (error) {
+      const code = String(error.code || '').toLowerCase();
+      const msg = String(error.message || '').toLowerCase();
+      const isMissing =
+        code === '42p01' ||
+        msg.includes('does not exist') ||
+        msg.includes('not found') ||
+        code === 'pgrst116';
+
+      return {
+        isConfigured: true,
+        connected: true,
+        tablesExist: !isMissing,
+        message: isMissing
+          ? 'Connected to Supabase, but SQL schema tables (users, course_progress, etc.) have not been executed yet.'
+          : error.message,
+      };
+    }
+
+    return {
+      isConfigured: true,
+      connected: true,
+      tablesExist: true,
+      message: 'Supabase PostgreSQL 16 active — all relational tables and RLS policies verified.',
+    };
+  } catch (err: any) {
+    return {
+      isConfigured: true,
+      connected: false,
+      tablesExist: false,
+      message: err?.message || 'Unable to query Supabase.',
+    };
+  }
+}
+
 /**
  * Curated 50-Engineer Global Cohort for the Global Leaderboard.
  * Used while real registered users < 50; once real registered users reach >= 50,

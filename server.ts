@@ -3,6 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { execFile } from 'child_process';
 import path from 'path';
+import { executeSupabaseMigration } from './scripts/migrate';
 
 const PORT = 3000;
 
@@ -82,14 +83,29 @@ async function startServer() {
     res.status(200).json({
       status: 'ok',
       service: 'code-it-out-academy',
-      modules: 452,
-      tracks: 18,
+      modules: 477,
+      tracks: 19,
       authProvider: 'firebase-auth-oidc',
       databaseEngine: 'supabase-postgresql-16-rls',
       systemDesignScore: '10.0/10',
       databaseDesignScore: '10.0/10',
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // Auto-Migration Endpoint for Supabase PostgreSQL 16 (3NF + RLS + Seed Verification)
+  app.all('/api/migrate', async (_req, res) => {
+    try {
+      const result = await executeSupabaseMigration();
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(200).json({
+        ok: false,
+        migrated: false,
+        tablesVerified: [],
+        message: err?.message || 'Migration execution failed',
+      });
+    }
   });
 
   // Server-side Gemini endpoint: AI Tutor Chat

@@ -13,39 +13,38 @@ import LoginPage from './components/LoginPage';
 import AdminPanel from './components/AdminPanel';
 import CommandPalette from './components/CommandPalette';
 import { auth, getRedirectResult, sendPasswordResetEmail } from './services/firebase';
+import {
+  checkSupabaseDatabaseStatus,
+  DatabaseStatusReport,
+  SUPABASE_RELATIONAL_SCHEMA_SQL,
+  IS_SUPABASE_CONFIGURED,
+} from './services/supabase';
 
 export type AppTab = 'dashboard' | 'learn' | 'practice' | 'visualizer' | 'cheatsheets' | 'daily' | 'admin';
 
-const DEFAULT_STUDENT_PROFILE: UserProfile = {
-  id: 'student_default_01',
-  name: 'Alex Mercer',
-  email: 'alex.mercer@faangprep.io',
-  role: 'user',
-  tier: 'Novice',
-  streak: 5,
-  lastLogin: new Date().toISOString(),
-  xp: 250,
-  level: 1,
-  badges: [
-    { id: 'fast-starter', name: 'Fast Starter', icon: '🚀', dateEarned: new Date().toLocaleDateString() }
-  ],
-  solvedProblemIds: []
-};
-
 const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(() => {
-    const cached = db.getCurrentUser();
-    if (cached) return cached;
-    // Automatically provision student profile so learners can explore tutorials & sandboxes immediately
-    db.saveUser(DEFAULT_STUDENT_PROFILE);
-    return DEFAULT_STUDENT_PROFILE;
+    // Scrub any legacy mock profiles immediately on startup
+    db.getUsers();
+    return db.getCurrentUser();
   });
 
-  const [showAuthScreen, setShowAuthScreen] = useState<boolean>(false);
+  // ALWAYS show LoginPage as Step 1 when entering the application (unless ?autostart=1 is used by automated tests)
+  const [showAuthScreen, setShowAuthScreen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('autostart')) {
+      return false;
+    }
+    return true;
+  });
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const savedTab = localStorage.getItem('cs_active_tab') as AppTab;
     return savedTab || 'dashboard';
   });
+
+  const [dbReport, setDbReport] = useState<DatabaseStatusReport | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [checkingDb, setCheckingDb] = useState(false);
+  const [runningAutoMigrate, setRunningAutoMigrate] = useState(false);
 
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loadingDaily, setLoadingDaily] = useState(false);
@@ -88,8 +87,10 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Check for Firebase session and sync
+  // Trigger runtime Supabase schema auto-migration in background & check for OAuth redirect
   useEffect(() => {
+    fetch('/api/migrate', { method: 'POST' }).catch(() => {});
+
     getRedirectResult(auth)
       .then(async (result) => {
         if (result && result.user) {
@@ -164,7 +165,8 @@ const App: React.FC = () => {
         }
 
         setUser(userProfile);
-        setShowAuthScreen(false);
+        // NOTE: Do NOT call setShowAuthScreen(false) here on initial mount so the user
+        // always lands on LoginPage as Step 1 unless they explicitly sign in on LoginPage.
         db.syncUserDataFromCloud(firebaseUser.uid).catch(() => {});
       }
     });
@@ -216,9 +218,28 @@ const App: React.FC = () => {
       // Ignore
     }
     db.logout();
+    setUser(null);
     setShowAccountModal(false);
     setShowAuthScreen(true);
   };
+
+  const refreshDatabaseStatus = async () => {
+    setCheckingDb(true);
+    try {
+      const report = await checkSupabaseDatabaseStatus();
+      setDbReport(report);
+    } catch {
+      // Ignore
+    } finally {
+      setCheckingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showAccountModal) {
+      refreshDatabaseStatus();
+    }
+  }, [showAccountModal]);
 
   const handleRefreshUser = () => {
     const updated = db.getCurrentUser();
@@ -326,8 +347,8 @@ const App: React.FC = () => {
             </span>
           </button>
 
-          {/* Explicit Sign In / Switch Account Button when on Default Demo Profile */}
-          {user.id === 'student_default_01' && (
+          {/* Explicit Sign In / Switch Account Button when on Guest Profile */}
+          {(user.id.startsWith('local_') || user.email.includes('guest')) && (
             <button
               type="button"
               data-testid="header-login-btn"
@@ -601,6 +622,90 @@ const App: React.FC = () => {
                 <span className="text-slate-400">Scholar Tier &amp; XP</span>
                 <span className="font-mono text-emerald-400 font-bold">{user.tier} · {user.xp} XP (Level {user.level})</span>
               </div>
+            </div>
+
+            {/* Supabase Relational Database Setup & Real-time Diagnostic Card */}
+            <div className="p-4 rounded-xl bg-[#0b0f19] border border-slate-800 text-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      dbReport?.tablesExist ? 'bg-emerald-400' : 'bg-amber-400'
+                    }`}
+                  />
+                  <span className="font-bold text-white">Supabase PostgreSQL 16 Status</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={refreshDatabaseStatus}
+                  disabled={checkingDb}
+                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold transition-colors disabled:opacity-50"
+                >
+                  {checkingDb ? 'Checking...' : 'Re-Check Tables'}
+                </button>
+              </div>
+
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                {dbReport?.message ||
+                  (IS_SUPABASE_CONFIGURED
+                    ? 'Verifying relational tables in schema public...'
+                    : 'Supabase credentials not configured yet. Add VITE_SUPABASE_URL in .env.')}
+              </p>
+
+              {!dbReport?.tablesExist && (
+                <div className="space-y-2.5 pt-2 border-t border-slate-800/80">
+                  <div className="text-[11px] text-slate-300">
+                    <span className="font-semibold text-amber-300">Auto-Execute or Manual Run:</span> Click <strong className="text-white">Run Auto-Migration</strong> if <code className="font-mono text-emerald-300">POSTGRES_URL</code> is linked in Vercel, or copy the 3NF SQL schema into Supabase <strong className="text-white">SQL Editor</strong>.
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={runningAutoMigrate}
+                      onClick={async () => {
+                        setRunningAutoMigrate(true);
+                        try {
+                          const res = await fetch('/api/migrate', { method: 'POST' });
+                          const data = await res.json();
+                          await refreshDatabaseStatus();
+                          setAccountActionMsg({
+                            type: data.executed || data.migrated ? 'success' : 'error',
+                            text: data.message || 'Auto-migration completed.',
+                          });
+                        } catch {
+                          setAccountActionMsg({
+                            type: 'error',
+                            text: 'Could not reach /api/migrate. Use Copy Full 3NF SQL Schema below.',
+                          });
+                        } finally {
+                          setRunningAutoMigrate(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      {runningAutoMigrate ? 'Running Migration...' : '⚡ Run Auto-Migration'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(SUPABASE_RELATIONAL_SCHEMA_SQL);
+                        setCopiedSql(true);
+                        setTimeout(() => setCopiedSql(false), 3000);
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+                    >
+                      {copiedSql ? '✓ Copied SQL Schema!' : '📋 Copy Full 3NF SQL Schema'}
+                    </button>
+                    <a
+                      href="https://supabase.com/dashboard/project/_/sql"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg font-semibold text-xs transition-colors flex items-center gap-1"
+                    >
+                      Open Supabase SQL Editor ↗
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

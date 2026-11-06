@@ -124,9 +124,11 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
   };
 
   const handleContinueLocally = (customEmail?: string, customName?: string) => {
-    const targetEmail = customEmail || email.trim() || 'alex.mercer@codeitout.io';
+    const targetEmail = customEmail || email.trim() || 'guest.engineer@codeitout.io';
     const targetName =
-      customName || displayName.trim() || targetEmail.split('@')[0] || 'Alex Mercer';
+      customName ||
+      displayName.trim() ||
+      (targetEmail.includes('@') ? targetEmail.split('@')[0] : 'Guest Engineer');
 
     const existingUsers = db.getUsers();
     let profile = existingUsers[targetEmail];
@@ -138,9 +140,9 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
         email: targetEmail,
         role: targetEmail.includes('admin') ? 'admin' : 'user',
         tier: 'Novice',
-        streak: 5,
+        streak: 1,
         lastLogin: new Date().toISOString(),
-        xp: 250,
+        xp: 100,
         level: 1,
         badges: [],
       };
@@ -478,7 +480,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Alex Mercer"
+                    placeholder="Enter your full name"
                     className="w-full min-h-[42px] bg-[#0b101b] border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -567,7 +569,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
               <button
                 type="button"
                 data-testid="guest-login-btn"
-                onClick={() => handleContinueLocally('alex.mercer@codeitout.io', 'Alex Mercer')}
+                onClick={() => handleContinueLocally('guest.engineer@codeitout.io', 'Guest Engineer')}
                 className="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-[#0b101b] hover:bg-slate-800/80 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center justify-between gap-2 whitespace-nowrap"
               >
                 <span>Continue as Guest</span>
