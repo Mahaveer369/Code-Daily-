@@ -2,15 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateLessonContent } from './gemini';
 import { db } from './db';
 
-// Mock import.meta.env
-vi.stubGlobal('import', {
-  meta: {
-    env: {
-      VITE_PERPLEXITY_API_KEY: 'test-api-key',
-    },
-  },
-});
-
 describe('gemini service', () => {
   beforeEach(() => {
     vi.spyOn(global, 'fetch').mockImplementation(() =>

@@ -1,33 +1,10 @@
 import { DailyPlan, Category, LessonContent } from '../types';
 import { db } from './db';
 
-const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
-const getApiKey = () => import.meta.env.VITE_PERPLEXITY_API_KEY || '';
-
-export const callPerplexity = async (systemPrompt: string, userPrompt: string): Promise<string> => {
-  const response = await fetch(PERPLEXITY_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'sonar',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-};
+/**
+ * All AI requests are routed strictly through server-side proxy endpoints (/api/gemini/*)
+ * so zero API keys are ever exposed in the browser bundle.
+ */
 
 const getCuratedDailyPlan = (today: string): DailyPlan => ({
   date: today,
@@ -92,8 +69,6 @@ Generate a structured JSON response containing one "Question of the Day" for eac
     if (serverRes.ok) {
       const data = await serverRes.json();
       content = data.text || '';
-    } else if (getApiKey()) {
-      content = await callPerplexity(systemPrompt, `Generate today's study plan for: ${today}`);
     }
 
     if (content) {
@@ -134,12 +109,6 @@ export const getFastDefinition = async (term: string): Promise<string> => {
     if (serverRes.ok) {
       const data = await serverRes.json();
       if (data.text) return data.text.trim();
-    } else if (getApiKey()) {
-      const content = await callPerplexity(
-        "You are a CS expert. Define terms concisely in max 30 words.",
-        `Define "${term}" in CS context.`
-      );
-      if (content) return content.trim();
     }
   } catch (error) {
     // Fallback to dictionary
@@ -167,18 +136,14 @@ export const generateLessonContent = async (moduleId: string, topicTitle: string
       const userPrompt = `Create a learning module for: "${topicTitle}" in "${category}".`;
 
       let content = '';
-      if (getApiKey()) {
-        content = await callPerplexity(systemPrompt, userPrompt);
-      } else {
-        const serverRes = await fetch('/api/gemini/lesson', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ systemPrompt, userPrompt }),
-        });
-        if (serverRes.ok) {
-          const data = await serverRes.json();
-          content = data.text || '';
-        }
+      const serverRes = await fetch('/api/gemini/lesson', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systemPrompt, userPrompt }),
+      });
+      if (serverRes.ok) {
+        const data = await serverRes.json();
+        content = data.text || '';
       }
 
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -234,11 +199,6 @@ export class ChatService {
       if (serverRes.ok) {
         const data = await serverRes.json();
         content = data.text || "";
-      } else if (getApiKey()) {
-        content = await callPerplexity(
-          "You are an expert CS tutor. Be concise, accurate, and code-focused.",
-          message
-        );
       }
     } catch (err) {
       // Fallback to offline tutor response
