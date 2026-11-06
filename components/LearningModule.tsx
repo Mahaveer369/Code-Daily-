@@ -258,6 +258,17 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
   // VIEW 1: All 14 Subject Tracks & 350-Module Catalog Browser
   // ============================================================================
   if (!selectedCourse || !activeModule) {
+    // ⚡ Bolt Optimization: Pre-compute user progress into an O(1) lookup map
+    // Why: Prevents calling db.getUserProgress() and doing Array.find() inside
+    // the O(N) course mapping loop below, reducing time complexity from O(N*M) to O(N+M).
+    // Impact: Avoids unnecessary main thread blocking when rendering large course catalogs.
+    const catalogUser = db.getCurrentUser();
+    const catalogProgressList = catalogUser ? db.getUserProgress(catalogUser.id) : [];
+    const courseProgressMap = new Map();
+    for (const p of catalogProgressList) {
+      courseProgressMap.set(p.courseId, p);
+    }
+
     return (
       <div className="space-y-8 pb-12">
         <div className="bg-[#121a2b] border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
@@ -314,10 +325,7 @@ const LearningModule: React.FC<Props> = ({ onComplete, initialCourseId, initialM
         {/* Course Cards Grid showing custom SVG banner + ALL 25 modules inside each track */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map(course => {
-            const currentUser = db.getCurrentUser();
-            const progress = currentUser
-              ? db.getUserProgress(currentUser.id).find(p => p.courseId === course.id)
-              : null;
+            const progress = courseProgressMap.get(course.id);
             const completedCount = progress?.completedModuleIds.length || 0;
             const pct = Math.round((completedCount / course.modules.length) * 100);
             const visualUri = getTrackVisualDataUri(course.id);
