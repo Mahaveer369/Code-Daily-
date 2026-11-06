@@ -293,8 +293,12 @@ const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="min-h-[34px] sm:min-h-[36px] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700 text-[11px] sm:text-xs font-medium text-slate-200 transition-colors whitespace-nowrap shrink-0"
+            aria-label={`Search ${TOTAL_MODULES_COUNT} Topics`}
+            className="flex items-center gap-1.5 min-h-[34px] sm:min-h-[36px] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700 text-[11px] sm:text-xs font-medium text-slate-200 transition-colors whitespace-nowrap shrink-0"
           >
+            <svg aria-hidden="true" className="w-3.5 h-3.5 sm:hidden shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <span className="hidden sm:inline">Search {TOTAL_MODULES_COUNT} Topics </span>
             <span className="font-mono text-slate-300 sm:text-slate-400">⌘K</span>
           </button>
@@ -308,6 +312,7 @@ const App: React.FC = () => {
               setShowAccountModal(true);
             }}
             title={`${user.name} · ${user.tier} (${user.xp} XP)`}
+            aria-label={`Account Profile: ${user.name}, ${user.tier}, ${user.xp} XP`}
             className="min-h-[34px] sm:min-h-[36px] px-2 sm:px-2.5 py-1 rounded-lg bg-[#131c2e] hover:bg-slate-800 border border-slate-700/90 flex items-center gap-1.5 sm:gap-2 text-xs transition-colors shrink-0"
           >
             <span className="w-5 h-5 rounded-md bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-[10px] sm:text-[11px] flex items-center justify-center shrink-0">
