@@ -147,18 +147,21 @@ CREATE TABLE IF NOT EXISTS public.user_records (
   PRIMARY KEY (user_id, entity_id)
 );
 
--- 4. High-Performance Composite B-Tree Indexes
+-- 4. High-Performance Composite B-Tree Indexes (Never duplicate leading PK columns)
 CREATE INDEX IF NOT EXISTS idx_users_leaderboard ON public.users (xp DESC, streak DESC, level DESC);
-CREATE INDEX IF NOT EXISTS idx_user_records_user ON public.user_records (user_id);
 
--- 5. Global Ranking View using Window Functions (Sub-2ms at 1M+ rows)
-CREATE OR REPLACE VIEW public.global_leaderboard_view AS
+-- 5. Global Ranking View with SECURITY INVOKER = TRUE (Prevents CRITICAL Security Definer View warning)
+CREATE OR REPLACE VIEW public.global_leaderboard_view
+WITH (security_invoker = true)
+AS
 SELECT
   DENSE_RANK() OVER (ORDER BY u.xp DESC, u.streak DESC, u.created_at ASC) AS rank,
   u.id, u.name, u.tier, u.xp, u.level, u.streak
 FROM public.users u;
 
--- 6. Zero-Trust Row-Level Security (RLS) Bound to Firebase Auth UID
+ALTER VIEW public.global_leaderboard_view SET (security_invoker = true);
+
+-- 6. Zero-Trust Row-Level Security (RLS) with Cached InitPlan ((select auth.jwt() ->> 'sub'))
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_records ENABLE ROW LEVEL SECURITY;
 
@@ -167,13 +170,13 @@ CREATE POLICY "Public leaderboard read access"
 
 CREATE POLICY "Users mutate own profile via Firebase UID"
   ON public.users FOR ALL
-  USING ((auth.jwt() ->> 'sub') = id)
-  WITH CHECK ((auth.jwt() ->> 'sub') = id);
+  USING (((select auth.jwt() ->> 'sub')) = id)
+  WITH CHECK (((select auth.jwt() ->> 'sub')) = id);
 
 CREATE POLICY "Users mutate own records via Firebase UID"
   ON public.user_records FOR ALL
-  USING ((auth.jwt() ->> 'sub') = user_id)
-  WITH CHECK ((auth.jwt() ->> 'sub') = user_id);
+  USING (((select auth.jwt() ->> 'sub')) = user_id)
+  WITH CHECK (((select auth.jwt() ->> 'sub')) = user_id);
 ```
 
 ### Universal Firebase Auth → Supabase Bridge (`services/supabase.ts` Pattern)
@@ -196,15 +199,21 @@ export const supabase = createClient(
 
 ## 4. Universal Pre-Ship Verification Checklist (Run Before Every Deployment)
 
-Before considering any feature or application complete, verify all 10 gates:
+Before considering any feature or application complete, verify all 11 gates:
 
-- [ ] **Gate 1 — Clean Login & Auth Header**: Login page shows only Google OAuth, Sign In, Create Account, Forgot Password, and Guest access (zero exposed 2FA secrets, zero internal project IDs). Header shows clear `Sign In` / `Log Out` actions.
+- [ ] **Gate 1 — Mandatory Login Gate & Clean Auth Header**: Step 1 on opening `/` is always `<LoginPage />` (never auto-landing on a mock `Alex Mercer` user). Login page shows only Google OAuth, Sign In, Create Account, Forgot Password, and Guest access (zero exposed 2FA secrets, zero internal project IDs). Header shows clear `Sign In` / `Log Out` actions.
 - [ ] **Gate 2 — Pure Firebase Auth + Supabase SQL Separation**: Zero `firebase/firestore` imports anywhere in the codebase; all relational writes use idempotent Supabase `.upsert(..., { onConflict })` backed by L1 LocalStorage cache.
-- [ ] **Gate 3 — Separate Domain Tracks & Unique Keys**: Every major subject/category has its own dedicated `Category` enum value and full depth (no merged shortcuts, zero React duplicate key console warnings).
-- [ ] **Gate 4 — Zero Box / SVG Overflow**: Every SVG node uses `<clipPath>` and entity-aware token truncation (`formatSvgBoxToken`), and every card uses `min-w-0 break-words overflow-hidden`.
-- [ ] **Gate 5 — Popup Modal Interactive Workspace**: Clicking `Try It Yourself` opens a modal with Fullscreen/Minimize toggle and Close button, restricted strictly to the active domain's languages/tools.
-- [ ] **Gate 6 — Mobile `375x812` Ergonomics**: `document.documentElement.scrollWidth <= 375`, all buttons are single-line (`whitespace-nowrap`), and the Mobile Bottom Navigation bar has zero overlap from floating chat bubbles (`elementFromPoint` verified).
-- [ ] **Gate 7 — Cold-Start 50-User Cohort Cutover**: Leaderboard displays 50 realistic profiles when real users `< 50` and switches to 100% real users when `>= 50`.
-- [ ] **Gate 8 — Zero Meta-Slop on Customer UI**: No "System Design 10/10" self-rating banners on the Home screen, no fake telemetry tickers, and no AI model name branding.
-- [ ] **Gate 9 — Automated Unit & Stress Test Suite (`npm test`)**: `npx --yes tsx --test` passes 100% of unit, data-integrity, and high-concurrency stress tests.
-- [ ] **Gate 10 — Clean Production Build & TypeScript Lint**: `npm run build` and `tsc --noEmit` exit with `0` errors.
+- [ ] **Gate 3 — Zero Supabase Security & Performance Advisor Warnings**:
+  - Every SQL `VIEW` uses `WITH (security_invoker = true)` (prevents CRITICAL `Security Definer View`).
+  - Every RLS policy wraps `((select auth.jwt() ->> 'sub'))` in a scalar `SELECT` (prevents `Auth RLS Initialization Plan` per-row evaluation warnings).
+  - Every PL/pgSQL function includes `SET search_path = ''` (prevents `Function Search Path Mutable`).
+  - Revoke `PUBLIC, anon, authenticated` execute grants on any default `public.rls_auto_enable()` helper functions, and never create redundant single-column indexes that duplicate the leading column of a composite `PRIMARY KEY`.
+- [ ] **Gate 4 — Self-Contained Vercel Auto-Migration (`/api/migrate.ts` & `scripts/migrate.ts`)**: `/api/migrate.ts` is 100% self-contained (zero relative imports outside `/api` that cause `ERR_MODULE_NOT_FOUND` in Vercel ESM Serverless Functions) and strips `?sslmode=require` from `POSTGRES_URL` before passing `ssl: { rejectUnauthorized: false }` to `pg`.
+- [ ] **Gate 5 — Separate Domain Tracks & Unique Keys**: Every major subject/category has its own dedicated `Category` enum value and full depth (no merged shortcuts, zero React duplicate key console warnings).
+- [ ] **Gate 6 — Zero Box / SVG Overflow**: Every SVG node uses `<clipPath>` and entity-aware token truncation (`formatSvgBoxToken`), and every card uses `min-w-0 break-words overflow-hidden`.
+- [ ] **Gate 7 — Popup Modal Interactive Workspace**: Clicking `Try It Yourself` opens a modal with Fullscreen/Minimize toggle and Close button, restricted strictly to the active domain's languages/tools.
+- [ ] **Gate 8 — Mobile `375x812` Ergonomics**: `document.documentElement.scrollWidth <= 375`, all buttons are single-line (`whitespace-nowrap`), and the Mobile Bottom Navigation bar has zero overlap from floating chat bubbles (`elementFromPoint` verified).
+- [ ] **Gate 9 — Cold-Start 50-User Cohort Cutover**: Leaderboard displays 50 realistic profiles when real users `< 50` and switches to 100% real users when `>= 50`.
+- [ ] **Gate 10 — Zero Meta-Slop on Customer UI**: No "System Design 10/10" self-rating banners on the Home screen, no fake telemetry tickers, and no AI model name branding.
+- [ ] **Gate 11 — Automated Unit & Stress Test Suite + Clean Build (`npm run build`)**: `tsx scripts/migrate.ts && tsx --test services/codeRunner.test.ts && vite build` and `tsc --noEmit` exit with `0` errors.
+

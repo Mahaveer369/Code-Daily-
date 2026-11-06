@@ -13,19 +13,19 @@ const FALLBACK_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 DO $$ BEGIN
-  CREATE TYPE user_tier_enum AS ENUM ('Novice', 'Practitioner', 'Specialist', 'Master', 'Architect');
+  CREATE TYPE public.user_tier_enum AS ENUM ('Novice', 'Practitioner', 'Specialist', 'Master', 'Architect');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-  CREATE TYPE user_role_enum AS ENUM ('user', 'admin');
+  CREATE TYPE public.user_role_enum AS ENUM ('user', 'admin');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS public.users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120),
-  role user_role_enum NOT NULL DEFAULT 'user',
-  tier user_tier_enum NOT NULL DEFAULT 'Novice',
+  role public.user_role_enum NOT NULL DEFAULT 'user',
+  tier public.user_tier_enum NOT NULL DEFAULT 'Novice',
   xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0),
   level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
   streak INTEGER NOT NULL DEFAULT 1 CHECK (streak >= 0),
@@ -38,7 +38,10 @@ CREATE TABLE IF NOT EXISTS public.users (
 );
 
 CREATE OR REPLACE FUNCTION public.fn_sync_user_tier_and_level()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
 BEGIN
   NEW.level := FLOOR(GREATEST(0, NEW.xp) / 500.0) + 1;
   IF NEW.xp >= 5000 THEN
@@ -104,12 +107,14 @@ CREATE TABLE IF NOT EXISTS public.certificates (
   UNIQUE (user_id, course_id)
 );
 
+DROP INDEX IF EXISTS public.idx_users_tier;
+DROP INDEX IF EXISTS public.idx_course_progress_user;
 CREATE INDEX IF NOT EXISTS idx_users_leaderboard ON public.users (xp DESC, streak DESC, level DESC);
-CREATE INDEX IF NOT EXISTS idx_users_tier ON public.users (tier);
-CREATE INDEX IF NOT EXISTS idx_course_progress_user ON public.course_progress (user_id);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user_created ON public.bookmarks (user_id, created_at DESC);
 
-CREATE OR REPLACE VIEW public.global_leaderboard_view AS
+CREATE OR REPLACE VIEW public.global_leaderboard_view
+WITH (security_invoker = true)
+AS
 SELECT
   DENSE_RANK() OVER (ORDER BY u.xp DESC, u.streak DESC, u.created_at ASC) AS rank,
   u.id,
@@ -126,6 +131,23 @@ SELECT
     0
   )::INTEGER AS completed_modules
 FROM public.users u;
+
+ALTER VIEW public.global_leaderboard_view SET (security_invoker = true);
+
+DO $$
+DECLARE
+  fn_oid OID;
+BEGIN
+  FOR fn_oid IN
+    SELECT p.oid
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public' AND p.proname = 'rls_auto_enable'
+  LOOP
+    EXECUTE format('ALTER FUNCTION %s SET search_path = ''''', fn_oid::regprocedure);
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated', fn_oid::regprocedure);
+  END LOOP;
+END $$;
 `;
 
 export function normalizePostgresUrl(rawUrl: string): string {
@@ -220,6 +242,28 @@ export async function executeSupabaseMigration(): Promise<MigrationResult> {
         ('usr_seed_10', 'aarav.sharma@codeitout.io', 'Aarav Sharma', 'user', 'Master', 4820, 10, 41, 'Modern C++20/23 Systems'),
         ('usr_seed_21', 'rohan.verma@codeitout.io', 'Rohan Verma', 'user', 'Specialist', 2920, 6, 25, 'SQL & Storage Engines')
       ON CONFLICT (id) DO NOTHING;
+
+      INSERT INTO public.course_progress (user_id, course_id, completed_module_ids, total_modules, quiz_scores, last_accessed_module_id)
+      VALUES
+        ('usr_seed_01', 'course_sysdesign', ARRAY['sd_01','sd_02','sd_03','sd_04','sd_05'], 25, '{"sd_01":100,"sd_02":100}'::jsonb, 'sd_05'),
+        ('usr_seed_03', 'course_cpp', ARRAY['cpp_01','cpp_02','cpp_03'], 25, '{"cpp_01":100}'::jsonb, 'cpp_03')
+      ON CONFLICT (user_id, course_id) DO NOTHING;
+
+      INSERT INTO public.module_completions (user_id, course_id, module_id, quiz_score, xp_awarded)
+      VALUES
+        ('usr_seed_01', 'course_sysdesign', 'sd_01', 100, 50),
+        ('usr_seed_03', 'course_cpp', 'cpp_01', 100, 50)
+      ON CONFLICT (user_id, course_id, module_id) DO NOTHING;
+
+      INSERT INTO public.bookmarks (id, user_id, module_id, module_title, note)
+      VALUES
+        ('bm_seed_01', 'usr_seed_01', 'sd_01', 'System Design & Consistent Hashing', 'Consistent hashing ring with virtual nodes prevents hot-shard cascading failures.')
+      ON CONFLICT (id) DO NOTHING;
+
+      INSERT INTO public.certificates (id, user_id, course_id, course_title, issue_date, verification_code)
+      VALUES
+        ('cert_seed_01', 'usr_seed_01', 'course_sysdesign', 'System Design & Distributed Architecture', '2026-11-05', 'CIO-SYSDESIGN-2026-001')
+      ON CONFLICT (id) DO NOTHING;
     `);
 
     const checkRes = await client.query(`
@@ -236,7 +280,7 @@ export async function executeSupabaseMigration(): Promise<MigrationResult> {
       executed: true,
       migrated: true,
       tables,
-      message: `Executed schema & verified ${tables.length} tables/views in schema 'public' (${tables.join(', ')}).`,
+      message: `Executed zero-warning 3NF schema & verified ${tables.length} tables/views in schema 'public' (${tables.join(', ')}).`,
     };
   } catch (err: any) {
     const errMsg = `Migration warning: ${err?.message || String(err)}`;

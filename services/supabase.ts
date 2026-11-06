@@ -459,29 +459,34 @@ export const SYSTEM_AND_DB_AUDIT_REPORT: {
 };
 
 export const SUPABASE_RELATIONAL_SCHEMA_SQL = `-- ============================================================================
--- CODE IT OUT — SUPABASE POSTGRESQL 16 RELATIONAL SCHEMA (10/10 ARCHITECTURE)
+-- CODE IT OUT — SUPABASE POSTGRESQL 16 RELATIONAL SCHEMA (10/10 ZERO-WARNING)
 -- Identity: Firebase Authentication (OIDC JWT sub = users.id)
 -- Database: Supabase PostgreSQL with Row-Level Security (RLS) & Window Ranking
+-- Hardened for 0 Warnings in Supabase Security & Performance Advisor:
+--   1. WITH (security_invoker = true) on global_leaderboard_view (Fixes CRITICAL alert)
+--   2. ((select auth.jwt() ->> 'sub')) InitPlan caching on all RLS policies
+--   3. SET search_path = '' on all PL/pgSQL functions
+--   4. Revokes PUBLIC/anon/authenticated execute on public.rls_auto_enable()
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 1. ENUMERATED TYPES FOR GAMIFIED TIER PROGRESSION & ROLES
 DO $$ BEGIN
-  CREATE TYPE user_tier_enum AS ENUM ('Novice', 'Practitioner', 'Specialist', 'Master', 'Architect');
+  CREATE TYPE public.user_tier_enum AS ENUM ('Novice', 'Practitioner', 'Specialist', 'Master', 'Architect');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-  CREATE TYPE user_role_enum AS ENUM ('user', 'admin');
+  CREATE TYPE public.user_role_enum AS ENUM ('user', 'admin');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 2. USERS TABLE (Primary Key = Firebase Auth UID)
 CREATE TABLE IF NOT EXISTS public.users (
-  id TEXT PRIMARY KEY, -- Matches Firebase Auth UID (auth.jwt() ->> 'sub')
+  id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120),
-  role user_role_enum NOT NULL DEFAULT 'user',
-  tier user_tier_enum NOT NULL DEFAULT 'Novice',
+  role public.user_role_enum NOT NULL DEFAULT 'user',
+  tier public.user_tier_enum NOT NULL DEFAULT 'Novice',
   xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0),
   level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
   streak INTEGER NOT NULL DEFAULT 1 CHECK (streak >= 0),
@@ -493,9 +498,12 @@ CREATE TABLE IF NOT EXISTS public.users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 3. AUTOMATIC PL/pgSQL TRIGGER FOR DETERMINISTIC TIER & LEVEL COMPUTATION
+-- 3. AUTOMATIC PL/pgSQL TRIGGER WITH IMMUTABLE SEARCH_PATH = ''
 CREATE OR REPLACE FUNCTION public.fn_sync_user_tier_and_level()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
 BEGIN
   NEW.level := FLOOR(GREATEST(0, NEW.xp) / 500.0) + 1;
   IF NEW.xp >= 5000 THEN
@@ -565,14 +573,16 @@ CREATE TABLE IF NOT EXISTS public.certificates (
   UNIQUE (user_id, course_id)
 );
 
--- 8. HIGH-PERFORMANCE B-TREE & GIN INDEXES
+-- 8. CLEAN UP REDUNDANT/UNUSED INDEXES & KEEP COMPOSITE LEADERBOARD INDEX
+DROP INDEX IF EXISTS public.idx_users_tier;
+DROP INDEX IF EXISTS public.idx_course_progress_user;
 CREATE INDEX IF NOT EXISTS idx_users_leaderboard ON public.users (xp DESC, streak DESC, level DESC);
-CREATE INDEX IF NOT EXISTS idx_users_tier ON public.users (tier);
-CREATE INDEX IF NOT EXISTS idx_course_progress_user ON public.course_progress (user_id);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user_created ON public.bookmarks (user_id, created_at DESC);
 
--- 9. GLOBAL LEADERBOARD VIEW WITH WINDOW RANKING (DENSE_RANK)
-CREATE OR REPLACE VIEW public.global_leaderboard_view AS
+-- 9. GLOBAL LEADERBOARD VIEW WITH SECURITY INVOKER = TRUE (Fixes CRITICAL Security Definer View)
+CREATE OR REPLACE VIEW public.global_leaderboard_view
+WITH (security_invoker = true)
+AS
 SELECT
   DENSE_RANK() OVER (ORDER BY u.xp DESC, u.streak DESC, u.created_at ASC) AS rank,
   u.id,
@@ -590,48 +600,70 @@ SELECT
   )::INTEGER AS completed_modules
 FROM public.users u;
 
--- 10. ZERO-TRUST ROW-LEVEL SECURITY (RLS) BOUND TO FIREBASE AUTH JWT
+ALTER VIEW public.global_leaderboard_view SET (security_invoker = true);
+
+-- 10. ZERO-TRUST ROW-LEVEL SECURITY (RLS) WITH CACHED INITPLAN ((select auth.jwt() ->> 'sub'))
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.course_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.module_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.certificates ENABLE ROW LEVEL SECURITY;
 
--- Public read access for Global Leaderboard profile projections; self-only mutation
+DROP POLICY IF EXISTS "Users can read leaderboard profiles" ON public.users;
 CREATE POLICY "Users can read leaderboard profiles"
   ON public.users FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can insert own Firebase UID profile" ON public.users;
 CREATE POLICY "Users can insert own Firebase UID profile"
-  ON public.users FOR INSERT WITH CHECK ((auth.jwt() ->> 'sub') = id);
+  ON public.users FOR INSERT WITH CHECK (((select auth.jwt() ->> 'sub')) = id);
 
+DROP POLICY IF EXISTS "Users can update own Firebase UID profile" ON public.users;
 CREATE POLICY "Users can update own Firebase UID profile"
-  ON public.users FOR UPDATE USING ((auth.jwt() ->> 'sub') = id)
-  WITH CHECK ((auth.jwt() ->> 'sub') = id);
+  ON public.users FOR UPDATE USING (((select auth.jwt() ->> 'sub')) = id)
+  WITH CHECK (((select auth.jwt() ->> 'sub')) = id);
 
+DROP POLICY IF EXISTS "Users can delete own Firebase UID profile" ON public.users;
 CREATE POLICY "Users can delete own Firebase UID profile"
-  ON public.users FOR DELETE USING ((auth.jwt() ->> 'sub') = id);
+  ON public.users FOR DELETE USING (((select auth.jwt() ->> 'sub')) = id);
 
--- Course Progress RLS
+DROP POLICY IF EXISTS "Users manage own course_progress" ON public.course_progress;
 CREATE POLICY "Users manage own course_progress"
   ON public.course_progress FOR ALL
-  USING ((auth.jwt() ->> 'sub') = user_id)
-  WITH CHECK ((auth.jwt() ->> 'sub') = user_id);
+  USING (((select auth.jwt() ->> 'sub')) = user_id)
+  WITH CHECK (((select auth.jwt() ->> 'sub')) = user_id);
 
--- Module Completions RLS
+DROP POLICY IF EXISTS "Users manage own module_completions" ON public.module_completions;
 CREATE POLICY "Users manage own module_completions"
   ON public.module_completions FOR ALL
-  USING ((auth.jwt() ->> 'sub') = user_id)
-  WITH CHECK ((auth.jwt() ->> 'sub') = user_id);
+  USING (((select auth.jwt() ->> 'sub')) = user_id)
+  WITH CHECK (((select auth.jwt() ->> 'sub')) = user_id);
 
--- Bookmarks RLS
+DROP POLICY IF EXISTS "Users manage own bookmarks" ON public.bookmarks;
 CREATE POLICY "Users manage own bookmarks"
   ON public.bookmarks FOR ALL
-  USING ((auth.jwt() ->> 'sub') = user_id)
-  WITH CHECK ((auth.jwt() ->> 'sub') = user_id);
+  USING (((select auth.jwt() ->> 'sub')) = user_id)
+  WITH CHECK (((select auth.jwt() ->> 'sub')) = user_id);
 
--- Certificates RLS
+DROP POLICY IF EXISTS "Users manage own certificates" ON public.certificates;
 CREATE POLICY "Users manage own certificates"
   ON public.certificates FOR ALL
-  USING ((auth.jwt() ->> 'sub') = user_id)
-  WITH CHECK ((auth.jwt() ->> 'sub') = user_id);
+  USING (((select auth.jwt() ->> 'sub')) = user_id)
+  WITH CHECK (((select auth.jwt() ->> 'sub')) = user_id);
+
+-- 11. HARDEN SUPABASE DEFAULT public.rls_auto_enable() IF PRESENT
+DO $$
+DECLARE
+  fn_oid OID;
+BEGIN
+  FOR fn_oid IN
+    SELECT p.oid
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public' AND p.proname = 'rls_auto_enable'
+  LOOP
+    EXECUTE format('ALTER FUNCTION %s SET search_path = ''''', fn_oid::regprocedure);
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated', fn_oid::regprocedure);
+  END LOOP;
+END $$;
 `;
+
